@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 /* ═══ UTILITIES ═══ */
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -6,6 +6,153 @@ const toIt = (v) => { const n = parseFloat(String(v || "0").replace(",", ".")); 
 const parseIt = (v) => { const n = parseFloat(String(v || "0").replace(",", ".")); return isNaN(n) ? 0 : n; };
 const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const round2 = (v) => Math.round(v * 100) / 100;
+
+/* ════════════════════════════════════════════════════════════
+   XML PARSER — importa flussi variazione e standard DMA2
+════════════════════════════════════════════════════════════ */
+const getTxt = (el, tag) => el?.querySelector(tag)?.textContent?.trim() || "";
+
+function pairEVRows(evList) {
+  const out = evList.map(e => ({ ...e }));
+  for (const t1 of out.filter(e => e.TipoContributo === "1")) {
+    const match = out.find(e =>
+      e.TipoContributo === "9" &&
+      e.AnnoMeseErogazione === t1.AnnoMeseErogazione &&
+      e.Imponibile === t1.Imponibile &&
+      !e.pairedWith
+    );
+    if (match) { t1.pairedTc9 = match.id; match.pairedWith = t1.id; }
+  }
+  return out;
+}
+
+function parseInquadramento(perEl) {
+  const inq = perEl.querySelector("InquadramentoLavPA");
+  if (!inq) return { TipoImpiego:"1", TipoServizio:"4", Contratto:"RALN", Qualifica:"", hasPartTime:false, TipoPartTime:"O", PercPartTime:"", RegimeFineServizio:"3" };
+  const pt = inq.querySelector("PartTimePA");
+  return {
+    TipoImpiego: getTxt(inq,"TipoImpiego") || "1",
+    TipoServizio: getTxt(inq,"TipoServizio") || "4",
+    Contratto: getTxt(inq,"Contratto") || "RALN",
+    Qualifica: getTxt(inq,"Qualifica") || "",
+    hasPartTime: !!pt,
+    TipoPartTime: pt ? getTxt(pt,"TipoPartTime") : "O",
+    PercPartTime: pt ? getTxt(pt,"PercPartTime") : "",
+    RegimeFineServizio: getTxt(inq,"RegimeFineServizio") || "3",
+  };
+}
+
+function parseGestioni(perEl) {
+  const g = { ImpCPDEL:"", ContribCPDEL:"", Contrib1Perc:"", StipTabellare:"0,00", RetribAnzianita:"0,00", regimeTFS:"TFS", ImpTFS:"", ContribTFS:"", ImpCredito:"", ContribCredito:"" };
+  const gp = perEl.querySelector("GestPensionistica");
+  if (gp) {
+    g.ImpCPDEL = getTxt(gp,"Imponibile");
+    g.ContribCPDEL = getTxt(gp,"Contributo");
+    g.Contrib1Perc = getTxt(gp,"Contrib1PerCento");
+    g.StipTabellare = getTxt(gp,"StipendioTabellare") || "0,00";
+    g.RetribAnzianita = getTxt(gp,"RetribIndivAnzianita") || "0,00";
+  }
+  const gpr = perEl.querySelector("GestPrevidenziale");
+  if (gpr) {
+    if (getTxt(gpr,"ImponibileTFR")) { g.regimeTFS="TFR"; g.ImpTFS=getTxt(gpr,"ImponibileTFR"); g.ContribTFS=getTxt(gpr,"ContributoTFR"); }
+    else { g.ImpTFS=getTxt(gpr,"ImponibileTFS"); g.ContribTFS=getTxt(gpr,"ContributoTFS"); }
+  }
+  const gc = perEl.querySelector("GestCredito");
+  if (gc) { g.ImpCredito=getTxt(gc,"Imponibile"); g.ContribCredito=getTxt(gc,"Contributo"); }
+  if (g.ImpCPDEL && !g.ImpCredito) g.ImpCredito = g.ImpCPDEL; // auto-sync
+  return g;
+}
+
+function parseEVEl(evEl, cfAz, prg) {
+  return {
+    id: uid(),
+    TipoContributo: getTxt(evEl,"TipoContributo") || "1",
+    CFAzienda: getTxt(evEl,"CFAzienda") || cfAz,
+    PRGAZIENDA: getTxt(evEl,"PRGAZIENDA") || prg || "00000",
+    Imponibile: getTxt(evEl,"Imponibile") || "",
+    Contributo: getTxt(evEl,"Contributo") || "",
+    AnnoMeseErogazione: getTxt(evEl,"AnnoMeseErogazione") || "",
+    Aliquota: getTxt(evEl,"Aliquota") || "2",
+  };
+}
+
+function mkDefaultEVPair(cfAz, prg, impC, impG) {
+  const t1id=uid(), t9id=uid();
+  return [
+    { id:t1id, TipoContributo:"1", CFAzienda:cfAz, PRGAZIENDA:prg||"00000", Imponibile:impC||"", Contributo:"", AnnoMeseErogazione:"", Aliquota:"2", pairedTc9:t9id },
+    { id:t9id, TipoContributo:"9", CFAzienda:cfAz, PRGAZIENDA:prg||"00000", Imponibile:impG||impC||"", Contributo:"", AnnoMeseErogazione:"", Aliquota:"2", pairedWith:t1id },
+  ];
+}
+
+function parsePeriodEl(el, tag, cfAz, prg) {
+  const inq = parseInquadramento(el);
+  const gest = parseGestioni(el);
+  const causale = tag === "V1_PeriodoPrecedente" ? (el.getAttribute("CausaleVariazione") || "5") : "5";
+  const evEls = el.querySelectorAll("EnteVersante");
+  const evList = evEls.length > 0
+    ? pairEVRows(Array.from(evEls).map(ev => parseEVEl(ev, cfAz, prg)))
+    : mkDefaultEVPair(cfAz, prg, gest.ImpCPDEL, gest.ImpCredito);
+  return {
+    id: uid(), CausaleVariazione: causale,
+    GiornoInizio: getTxt(el,"GiornoInizio"), GiornoFine: getTxt(el,"GiornoFine"),
+    CodiceCessazione: getTxt(el,"CodiceCessazione"),
+    ...inq, ...gest,
+    enteVersante: evList,
+  };
+}
+
+function parseUniEmensXML(xmlStr) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlStr, "application/xml");
+  if (doc.querySelector("parsererror")) return { error: "XML non valido: struttura malformata." };
+
+  const errors = [];
+  const listaPosPA = doc.querySelector("ListaPosPA");
+  const cfAz = getTxt(doc,"CFAzienda");
+  const prg = listaPosPA ? getTxt(listaPosPA,"PRGAZIENDA") : "00000";
+  const isVariazione = listaPosPA?.getAttribute("TipoListaPosPA") === "1";
+
+  const mittente = {
+    CFPersonaMittente: getTxt(doc,"CFPersonaMittente"),
+    RagSocMittente: getTxt(doc,"RagSocMittente"),
+    CFMittente: getTxt(doc,"CFMittente"),
+    CFSoftwarehouse: getTxt(doc,"CFSoftwarehouse") || "00000000000",
+    SedeINPS: getTxt(doc,"SedeINPS"),
+  };
+  const azienda = {
+    AnnoMeseDenuncia: getTxt(doc,"AnnoMeseDenuncia"),
+    CFAzienda: cfAz,
+    RagSocAzienda: getTxt(doc,"RagSocAzienda"),
+    PRGAZIENDA: prg || "00000",
+    CFRappresentanteFirmatario: listaPosPA ? getTxt(listaPosPA,"CFRappresentanteFirmatario") : "",
+    ISTAT: listaPosPA ? getTxt(listaPosPA,"ISTAT") : "",
+    FormaGiuridica: listaPosPA ? getTxt(listaPosPA,"FormaGiuridica") : "2430",
+  };
+
+  const d0s = doc.querySelectorAll("D0_DenunciaIndividuale");
+  if (d0s.length === 0) errors.push("Nessun blocco D0_DenunciaIndividuale trovato nel file.");
+
+  const workers = Array.from(d0s).map(d0 => {
+    const cf = getTxt(d0,"CFLavoratore");
+    if (!cf) errors.push(`Worker senza CFLavoratore: ${getTxt(d0,"Cognome")} ${getTxt(d0,"Nome")}`);
+    const v1s = Array.from(d0.querySelectorAll("V1_PeriodoPrecedente"));
+    const e0s = Array.from(d0.querySelectorAll("E0_DatiRetributivi"));
+    const periodoEls = v1s.length > 0 ? { els: v1s, tag: "V1_PeriodoPrecedente" } : { els: e0s, tag: "E0_DatiRetributivi" };
+    if (periodoEls.els.length === 0) errors.push(`${cf || "?"}: nessun periodo trovato, importata solo anagrafica.`);
+    return {
+      id: uid(),
+      CFLavoratore: cf,
+      Cognome: getTxt(d0,"Cognome"),
+      Nome: getTxt(d0,"Nome"),
+      CodiceComune: getTxt(d0,"CodiceComune"),
+      CAP: getTxt(d0,"CAP"),
+      periodi: periodoEls.els.map(el => parsePeriodEl(el, periodoEls.tag, cfAz, prg)),
+    };
+  });
+
+  return { mittente, azienda, isVariazione, workers, errors };
+}
+
 
 /* ════════════════════════════════════════════════════════════
    XML BUILDER — unico PosPA (fix 00124I)
@@ -212,7 +359,7 @@ const C = {
   inpG: { background: "#05160a", border: "1px solid #0a3a20", borderRadius: "3px", color: "#80e8a8", padding: "4px 7px", fontSize: "12px", fontFamily: "monospace", outline: "none", width: "100%", boxSizing: "border-box" },
   inpR: { background: "#1a0505", border: "1px solid #5a1010", borderRadius: "3px", color: "#f0a0a0", padding: "4px 7px", fontSize: "12px", fontFamily: "monospace", outline: "none", width: "100%", boxSizing: "border-box" },
   sel: { background: "#080f1a", border: "1px solid #1a3550", borderRadius: "3px", color: "#c8dff0", padding: "4px 7px", fontSize: "11px", outline: "none", width: "100%", boxSizing: "border-box" },
-  btn: (v="d") => ({ padding: "4px 11px", borderRadius: "3px", border: "none", cursor: "pointer", fontSize: "11px", fontWeight: "600", background: v==="p"?"#005a80":v==="s"?"#006040":v==="x"?"#6a1515":v==="w"?"#5a3a00":v==="pdf"?"#3a2060":"#162840", color: v==="p"?"#b0e4f8":v==="s"?"#90f0d0":v==="x"?"#f0b0b0":v==="w"?"#f0d080":v==="pdf"?"#d0a8ff":"#7aaac8" }),
+  btn: (v="d") => ({ padding: "4px 11px", borderRadius: "3px", border: "none", cursor: "pointer", fontSize: "11px", fontWeight: "600", background: v==="p"?"#005a80":v==="s"?"#006040":v==="x"?"#6a1515":v==="w"?"#5a3a00":v==="pdf"?"#3a2060":v==="imp"?"#0a3a20":"#162840", color: v==="p"?"#b0e4f8":v==="s"?"#90f0d0":v==="x"?"#f0b0b0":v==="w"?"#f0d080":v==="pdf"?"#d0a8ff":v==="imp"?"#80f0b0":"#7aaac8" }),
   card: { background: "#0e1c2c", border: "1px solid #1a334f", borderRadius: "5px", marginBottom: "7px", overflow: "hidden" },
   cHdr: { padding: "9px 13px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#0b1622" },
   cBody: { padding: "12px 13px" },
@@ -268,7 +415,9 @@ export default function UniEmensBuilder() {
   const [xml, setXml] = useState("");
   const [dupCount, setDupCount] = useState(null);
   const [warns, setWarns] = useState([]);
-  const [showReset, setShowReset] = useState(false); // modale conferma reset
+  const [showReset, setShowReset] = useState(false);
+  const [importModal, setImportModal] = useState(null); // { mittente, azienda, isVariazione, workers, errors, selected }
+  const fileRef = useRef(null);
 
   const mf = (k) => (v) => setM(p=>({...p,[k]:v}));
   const af = (k) => (v) => setA(p=>({...p,[k]:v}));
@@ -278,6 +427,43 @@ export default function UniEmensBuilder() {
     setM(EMPTY_M); setA(EMPTY_A); setDips([]);
     setXDip(null); setXPer(null); setXml(""); setDupCount(null); setWarns([]);
     setShowReset(false); setTab(0);
+  };
+
+  /* ── Import XML ── */
+  const handleFileImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = ""; // reset so same file can be re-selected
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = parseUniEmensXML(ev.target.result);
+      if (result.error) { alert("Errore import: " + result.error); return; }
+      // pre-select all workers
+      const selected = new Set(result.workers.map(w => w.id));
+      setImportModal({ ...result, selected });
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+
+  const doImport = (mode) => {
+    if (!importModal) return;
+    const chosen = importModal.workers.filter(w => importModal.selected.has(w.id));
+    if (mode === "replace") {
+      setM(importModal.mittente);
+      setA(importModal.azienda);
+      setDips(chosen);
+      setXml(""); setDupCount(null); setWarns([]);
+      setXDip(chosen.length > 0 ? chosen[0].id : null);
+      setXPer(null);
+      setTab(1);
+    } else {
+      // merge: update m and a, append workers
+      setM(importModal.mittente);
+      setA(importModal.azienda);
+      setDips(prev => [...prev, ...chosen]);
+      if (chosen.length > 0) { setXDip(chosen[0].id); setXPer(null); setTab(1); }
+    }
+    setImportModal(null);
   };
 
   /* ── mkPer ── */
@@ -570,7 +756,109 @@ export default function UniEmensBuilder() {
   /* ════ MAIN RENDER ════ */
   return(
     <div style={C.app}>
-      {/* Modale conferma reset */}
+      {/* ════ MODALE IMPORT ════ */}
+      {importModal&&(
+        <div style={C.modal}>
+          <div style={{...C.modalBox,maxWidth:"620px",width:"94%",maxHeight:"85vh",display:"flex",flexDirection:"column"}}>
+            {/* Header */}
+            <div style={{marginBottom:"12px"}}>
+              <div style={{fontSize:"14px",fontWeight:"700",color:"#80f0b0",marginBottom:"4px"}}>⬆ Importa XML</div>
+              <div style={{fontSize:"11px",color:"#5a9070",lineHeight:"1.6"}}>
+                <strong style={{color:"#90d0b0"}}>{importModal.azienda.RagSocAzienda || importModal.azienda.CFAzienda}</strong>
+                {" "}· {importModal.azienda.AnnoMeseDenuncia}
+                {" "}· {importModal.isVariazione ? "Flusso VARIAZIONE" : "Flusso STANDARD"}
+                {" "}· {importModal.workers.length} dipendente{importModal.workers.length!==1?"i":""} trovato{importModal.workers.length!==1?"i":""}
+              </div>
+            </div>
+
+            {/* Errori/warning */}
+            {importModal.errors.length>0&&(
+              <div style={{background:"#1a1000",border:"1px solid #5a3a00",borderRadius:"4px",padding:"7px 9px",marginBottom:"10px",fontSize:"10px",color:"#e8c060",lineHeight:"1.6",flexShrink:0}}>
+                <strong>⚠ Avvisi import ({importModal.errors.length}):</strong><br/>
+                {importModal.errors.map((e,i)=><span key={i}>{e}<br/></span>)}
+              </div>
+            )}
+
+            {/* Lista dipendenti selezionabili */}
+            <div style={{fontSize:"10px",color:"#3a6a50",marginBottom:"5px",flexShrink:0}}>
+              Seleziona i dipendenti da importare:
+              <button style={{...C.btn(),marginLeft:"8px",fontSize:"9px",padding:"2px 7px"}}
+                onClick={()=>setImportModal(p=>({...p,selected:new Set(p.workers.map(w=>w.id))}))}>
+                Tutti
+              </button>
+              <button style={{...C.btn(),marginLeft:"4px",fontSize:"9px",padding:"2px 7px"}}
+                onClick={()=>setImportModal(p=>({...p,selected:new Set()}))}>
+                Nessuno
+              </button>
+            </div>
+            <div style={{overflowY:"auto",flex:1,marginBottom:"12px",border:"1px solid #1a3a28",borderRadius:"4px"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                <thead>
+                  <tr>
+                    <th style={{...C.th,width:"28px"}}></th>
+                    <th style={C.th}>CF Lavoratore</th>
+                    <th style={C.th}>Cognome</th>
+                    <th style={C.th}>Nome</th>
+                    <th style={C.th}>Comune</th>
+                    <th style={C.th}>Periodi</th>
+                    <th style={C.th}>EV</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {importModal.workers.map(w=>{
+                    const sel=importModal.selected.has(w.id);
+                    const totEVw=w.periodi.reduce((s,p)=>s+p.enteVersante.length,0);
+                    return(
+                      <tr key={w.id} style={{background:sel?"#071a10":"transparent",cursor:"pointer"}}
+                        onClick={()=>setImportModal(p=>{
+                          const s=new Set(p.selected);
+                          sel?s.delete(w.id):s.add(w.id);
+                          return{...p,selected:s};
+                        })}>
+                        <td style={{...C.td,textAlign:"center"}}>
+                          <input type="checkbox" readOnly checked={sel} style={{cursor:"pointer"}}/>
+                        </td>
+                        <td style={{...C.td,fontFamily:"monospace",fontSize:"11px",color:sel?"#80f0b0":"#4a7a60"}}>{w.CFLavoratore||"—"}</td>
+                        <td style={{...C.td,color:sel?"#c8e8d8":"#6a9a80"}}>{w.Cognome||"—"}</td>
+                        <td style={{...C.td,color:sel?"#c8e8d8":"#6a9a80"}}>{w.Nome||"—"}</td>
+                        <td style={{...C.td,color:"#4a7a60"}}>{w.CodiceComune||"—"}</td>
+                        <td style={{...C.td,textAlign:"center",...C.bdg("#208060")}}>{w.periodi.length}</td>
+                        <td style={{...C.td,textAlign:"center",...C.bdg("#1a6050")}}>{totEVw}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Note su DatiMittente */}
+            {!importModal.isVariazione&&(
+              <div style={{fontSize:"10px",color:"#3a6050",marginBottom:"10px",padding:"5px 8px",background:"#050e0a",borderRadius:"3px",flexShrink:0}}>
+                File standard (non variazione): periodi E0 importati come V1 causale 5. EnteVersante pre-compilata con coppia TC1+TC9 vuota.
+              </div>
+            )}
+
+            {/* Pulsanti azione */}
+            <div style={{display:"flex",gap:"8px",justifyContent:"flex-end",flexShrink:0,flexWrap:"wrap"}}>
+              <button style={C.btn()} onClick={()=>setImportModal(null)}>Annulla</button>
+              <button
+                style={{...C.btn("p"),padding:"5px 14px",opacity:importModal.selected.size===0?0.4:1}}
+                disabled={importModal.selected.size===0}
+                onClick={()=>doImport("merge")}>
+                Aggiungi ai dati correnti ({importModal.selected.size})
+              </button>
+              <button
+                style={{...C.btn("s"),padding:"5px 14px",opacity:importModal.selected.size===0?0.4:1}}
+                disabled={importModal.selected.size===0}
+                onClick={()=>doImport("replace")}>
+                Sostituisci lavorazione ({importModal.selected.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════ MODALE RESET ════ */}
       {showReset&&(
         <div style={C.modal}>
           <div style={C.modalBox}>
@@ -589,11 +877,13 @@ export default function UniEmensBuilder() {
 
       <div style={C.hdr}>
         <div>
-          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v3</div>
-          <div style={C.hdrS}>Fix 00124I · auto-sync · coppia TC1+TC9 · dedup · congruità EV in real-time (00171I / 00032I / 00172I) · PDF · Reset</div>
+          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v4</div>
+          <div style={C.hdrS}>Fix 00124I · auto-sync TC1+TC9 · dedup · congruità EV real-time · PDF · Reset · Importa XML</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
           <span style={{fontSize:"11px",color:"#1e3a58"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
+          <input ref={fileRef} type="file" accept=".xml" style={{display:"none"}} onChange={handleFileImport}/>
+          <button style={{...C.btn("imp"),padding:"5px 12px"}} onClick={()=>fileRef.current?.click()}>⬆ Importa XML</button>
           <button style={{...C.btn("pdf"),padding:"5px 12px"}} onClick={()=>generatePDF(m,a,dips)}>⬛ PDF</button>
           <button style={{...C.btn("w"),padding:"5px 12px"}} onClick={()=>setShowReset(true)}>↺ Nuova lavorazione</button>
         </div>
