@@ -664,16 +664,6 @@ export default function UniEmensBuilder() {
         </>}
 
         {tab===2&&<>
-          <div style={C.sec}>
-            <div style={C.sT}>Analisi errori — ultimi file INPS</div>
-            <div style={C.alert("e")}>
-              <strong>00171I</strong> · FAVACCIO · 2021-06 · Σ Imponibile TC1 EV = 13.369,11 &gt; GestPensionistica.Imponibile = 13.368,84 (eccesso 0,27)<br/>
-              <strong>00032I</strong> · FAVACCIO · 2021-06 · Σ Imponibile TC9 EV = 13.369,11 &gt; GestCredito.Imponibile = 13.368,84 (eccesso 0,27)<br/>
-              <span style={{color:"#a06060"}}>Causa: arrotondamenti cumulativi sui singoli mesi. Correggere riducendo un importo mensile di 0,27.</span><br/>
-              <span style={{color:"#60a080"}}>✓ Il pannello congruità nel builder segnala l'eccesso in real-time prima del passaggio al sw INPS.</span>
-            </div>
-          </div>
-
           <div style={{display:"flex",gap:"10px",marginBottom:"12px",alignItems:"center",flexWrap:"wrap"}}>
             <button style={{...C.btn("s"),padding:"7px 20px",fontSize:"13px"}} onClick={genera}>⚡ Genera XML</button>
             {xml&&<button style={{...C.btn("p"),padding:"7px 20px",fontSize:"13px"}} onClick={scarica}>⬇ Scarica XML</button>}
