@@ -1,5 +1,19 @@
 import { useState, useRef } from "react";
-import * as XLSX from "xlsx";
+
+/* SheetJS — caricamento CDN a runtime (no npm) */
+let _xlsxPromise = null;
+function loadXLSX() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (_xlsxPromise) return _xlsxPromise;
+  _xlsxPromise = new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    s.onload = () => res(window.XLSX);
+    s.onerror = () => { _xlsxPromise = null; rej(new Error("XLSX CDN load failed")); };
+    document.head.appendChild(s);
+  });
+  return _xlsxPromise;
+}
 
 /* ═══ UTILITIES ═══ */
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -106,7 +120,7 @@ function eqMapTipoPartTime(v){
   return eqCode(v)||"O";
 }
 
-function eqLoadRows(wb){
+function eqLoadRows(wb, XLSX){
   const ws=wb.Sheets[wb.SheetNames[0]];
   const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false});
   return data.slice(4).filter(r=>
@@ -684,13 +698,15 @@ export default function UniEmensBuilder() {
     if(!file||!file.name.endsWith(".xlsx"))return;
     const reader=new FileReader();
     reader.onload=e=>{
-      const wb=XLSX.read(e.target.result,{type:"array",raw:false,cellDates:false});
-      const rows=eqLoadRows(wb);
-      const cfList=eqGetCFs(rows);
-      const dipCF=dips.find(d=>d.id===xlsxImp?.dipId)?.CFLavoratore||"";
-      const autoSel=cfList.includes(dipCF)?dipCF:(cfList.length===1?cfList[0]:"");
-      const availYears=autoSel?eqGetYears(rows,autoSel):[];
-      setXlsxImp(p=>({...p,rawRows:rows,cfList,selCf:autoSel,availYears,selYears:new Set()}));
+      loadXLSX().then(XLSX=>{
+        const wb=XLSX.read(e.target.result,{type:"array",raw:false,cellDates:false});
+        const rows=eqLoadRows(wb,XLSX);
+        const cfList=eqGetCFs(rows);
+        const dipCF=dips.find(d=>d.id===xlsxImp?.dipId)?.CFLavoratore||"";
+        const autoSel=cfList.includes(dipCF)?dipCF:(cfList.length===1?cfList[0]:"");
+        const availYears=autoSel?eqGetYears(rows,autoSel):[];
+        setXlsxImp(p=>({...p,rawRows:rows,cfList,selCf:autoSel,availYears,selYears:new Set()}));
+      }).catch(()=>alert("Errore caricamento libreria Excel. Verificare connessione."));
     };
     reader.readAsArrayBuffer(file);
   };
