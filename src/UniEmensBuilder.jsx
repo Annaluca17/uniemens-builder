@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import * as XLSX from "xlsx";
 
 /* ═══ UTILITIES ═══ */
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -75,56 +76,124 @@ const EMPTY_INQ={dateFrom:"",dateTo:"",TipoImpiego:"1",TipoServizio:"4",
   PercPartTime:"",RegimeFineServizio:"3",CodiceCessazione:"",
   StipTabellare:"0,00",RetribAnzianita:"0,00"};
 
+/* ════════════════════════════════════════════════════════════
+   ELENCO QUADRI E0/V1 — EXCEL IMPORT HELPERS
+   Struttura: header row 4 (idx 3), dati da row 5 (idx 4)
+════════════════════════════════════════════════════════════ */
+const EQ={
+  CF:1,DATA_INI:3,DATA_FIN:4,TIPOLOGIA:5,TIPO_IMP:6,TIPO_SERV:7,CAUSALE:8,
+  CORRENTE:10,CASSA_PENS:18,IMP_CPDEL:19,CONTRIB_CPDEL:20,
+  IMP_TFR:24,CONTRIB_TFR:25,IMP_TFS:29,CONTRIB_TFS:30,
+  CESSAZIONE:53,STIP_TAB:61,RETRIB_ANZ:62,
+  TIPO_PT:67,PERC_PT:68,CONTRATTO:69,QUALIFICA:70,REGIME_FS:71,
+  CONTRIB_1PERC:80,IMP_SOL:103,CONTRIB_SOL:104,
+};
 
-/* ════ VALIDAZIONE DATE PERIODO V1 (00024I / 00311I) ════ */
-function lastDayOf(y,m){return new Date(y,m,0).getDate();}
-function splitPeriods(from,to){
-  if(!from||!to||from>to)return[];
-  const[fy,fm,fd]=from.split("-").map(Number);
-  const[ty,tm,td]=to.split("-").map(Number);
-  // Costruisce lista di {y,m}
-  const months=[];let cy=fy,cm=fm;
-  while(cy<ty||(cy===ty&&cm<=tm)){
-    months.push({y:cy,m:cm});
-    cm++;if(cm>12){cm=1;cy++;}
-  }
-  // Raggruppa: ante 2012-10 → per anno; da 2012-10 → per mese
-  const groups=[];let i=0;
-  while(i<months.length){
-    const{y:ny,m:nm}=months[i];
-    const mono=(ny>2012)||(ny===2012&&nm>=10);
-    if(mono){groups.push([months[i]]);i++;}
-    else{
-      const yr=ny;const g=[];
-      while(i<months.length){
-        const{y:gy,m:gm}=months[i];
-        if(gy!==yr||(gy===2012&&gm>=10))break;
-        g.push(months[i]);i++;
-      }
-      groups.push(g);
-    }
-  }
-  return groups.map((g,gi)=>{
-    const f=g[0],l=g[g.length-1];
-    const pFrom=gi===0?from:`${f.y}-${String(f.m).padStart(2,"0")}-01`;
-    const pTo=gi===groups.length-1?to:`${l.y}-${String(l.m).padStart(2,"0")}-${String(lastDayOf(l.y,l.m)).padStart(2,"0")}`;
-    return{from:pFrom,to:pTo};
-  });
+function eqNum(v){if(v===null||v===undefined||v==="")return 0;if(typeof v==="number")return v;return parseFloat(String(v).replace(",","."))||0;}
+function eqCode(v){const m=String(v||"").match(/^(\S+)/);return m?m[1]:"";}
+function eqDateStr(v){
+  if(!v)return null;
+  const s=String(v).trim();
+  let m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(m)return`${m[3]}-${m[2]}-${m[1]}`;
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return`${m[1]}-${m[2]}-${m[3]}`;
+  return null;
 }
-function checkDateErrors(from,to){
-  if(!from||!to||from.length<10||to.length<10)return[];
-  const[fy]=from.split("-").map(Number);
-  const[ty,tm]=to.split("-").map(Number);
-  const errs=[];
-  if(fy!==ty)errs.push("00024I");
-  if((ty>2012||(ty===2012&&tm>=10))&&errs.indexOf("00024I")===-1){
-    const[,fm]=from.split("-").map(Number);
-    if(fm!==tm)errs.push("00311I");
+function eqYear(v){const d=eqDateStr(v);return d?parseInt(d.slice(0,4)):null;}
+function eqMapTipoPartTime(v){
+  const s=String(v||"").toUpperCase();
+  if(s.includes("ORI"))return"O";if(s.includes("VER"))return"V";
+  if(s.includes("MIS"))return"M";if(s.includes("CIC"))return"P";
+  return eqCode(v)||"O";
+}
+
+function eqLoadRows(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false});
+  return data.slice(4).filter(r=>
+    r[EQ.CF]&&
+    String(r[EQ.CORRENTE]||"").trim()==="Corrente"&&
+    (String(r[EQ.TIPOLOGIA]||"").trim()==="E0"||
+     (String(r[EQ.TIPOLOGIA]||"").trim()==="V1"&&String(r[EQ.CAUSALE]||"").trim()!=="5"))
+  );
+}
+
+function eqGetCFs(rows){return[...new Set(rows.map(r=>r[EQ.CF]).filter(Boolean))].sort();}
+function eqGetYears(rows,cf){
+  return[...new Set(rows.filter(r=>r[EQ.CF]===cf).map(r=>eqYear(r[EQ.DATA_INI])).filter(Boolean))].sort((a,b)=>a-b);
+}
+
+function eqAggregate(rows,cf,selYears){
+  const cfRows=rows.filter(r=>r[EQ.CF]===cf&&selYears.has(eqYear(r[EQ.DATA_INI])));
+  if(!cfRows.length)return{yearTotals:[],anagrafica:null,dateFrom:"",dateTo:""};
+
+  /* Regime TFS/TFR — from first non-empty col 71 */
+  const regCode=String(cfRows.find(r=>r[EQ.REGIME_FS])?.[EQ.REGIME_FS]||"1").trim();
+  const isTFS=regCode==="3";
+  const regimeTFS=isTFS?"TFS":"TFR";
+
+  /* Aggregate per year */
+  const ymap={};
+  for(const r of cfRows){
+    const yr=eqYear(r[EQ.DATA_INI]);if(!yr)continue;
+    if(!ymap[yr])ymap[yr]={anno:yr,ImpCPDEL:0,ContribCPDEL:0,Contrib1Perc:0,
+      ImpTFS:0,ContribTFS:0,ContribCredito:0,ImpSol:0,ContribSol:0,
+      StipTabellare:0,RetribAnzianita:0,regimeTFS};
+    const a=ymap[yr];
+    a.ImpCPDEL    +=eqNum(r[EQ.IMP_CPDEL]);
+    a.ContribCPDEL+=eqNum(r[EQ.CONTRIB_CPDEL]);
+    a.Contrib1Perc+=eqNum(r[EQ.CONTRIB_1PERC]);
+    a.ImpTFS      +=isTFS?eqNum(r[EQ.IMP_TFS]):eqNum(r[EQ.IMP_TFR]);
+    a.ContribTFS  +=isTFS?eqNum(r[EQ.CONTRIB_TFS]):eqNum(r[EQ.CONTRIB_TFR]);
+    a.ContribCredito+=0; /* computed separately below */
+    a.ImpSol      +=eqNum(r[EQ.IMP_SOL]);
+    a.ContribSol  +=eqNum(r[EQ.CONTRIB_SOL]);
+    if(eqNum(r[EQ.STIP_TAB])>0)a.StipTabellare=eqNum(r[EQ.STIP_TAB]);
+    if(eqNum(r[EQ.RETRIB_ANZ])>0)a.RetribAnzianita=eqNum(r[EQ.RETRIB_ANZ]);
   }
-  // Se 00024I c'è già, 00311I è implicito ma non va duplicato
-  if(errs.includes("00024I")&&(ty>2012||(ty===2012&&tm>=10)))
-    !errs.includes("00311I")&&errs.push("00311I");
-  return errs;
+  /* ContribCredito: col 35 (Contributo Credito) */
+  for(const r of cfRows){
+    const yr=eqYear(r[EQ.DATA_INI]);if(!yr||!ymap[yr])continue;
+    // Reset placeholder and sum correctly
+    ymap[yr]._cc=(ymap[yr]._cc||0)+eqNum(r[35]);
+  }
+  const yearTotals=Object.values(ymap).sort((a,b)=>a.anno-b.anno).map(yr=>({
+    ...yr,
+    ContribCredito:round2(yr._cc||0),
+    ImpCPDEL:    toIt(String(round2(yr.ImpCPDEL))),
+    ContribCPDEL:toIt(String(round2(yr.ContribCPDEL))),
+    Contrib1Perc:toIt(String(round2(yr.Contrib1Perc))),
+    ImpTFS:      toIt(String(round2(yr.ImpTFS))),
+    ContribTFS:  toIt(String(round2(yr.ContribTFS))),
+    ContribCreditoStr:toIt(String(round2(yr._cc||0))),
+    ImpSol:      toIt(String(round2(yr.ImpSol))),
+    ContribSol:  toIt(String(round2(yr.ContribSol))),
+    StipTabellare:   toIt(String(round2(yr.StipTabellare))),
+    RetribAnzianita: toIt(String(round2(yr.RetribAnzianita))),
+  }));
+
+  /* Anagrafica — take last row's stable fields */
+  const last=cfRows[cfRows.length-1];
+  const percRaw=eqNum(last[EQ.PERC_PT]);
+  const percUE=percRaw>=1000?Math.round(percRaw):Math.round(percRaw*1000);
+  const tipoImpStr=String(last[EQ.TIPO_IMP]||"").toLowerCase();
+  const isPartTime=tipoImpStr.includes("part");
+  const anagrafica={
+    TipoImpiego:eqCode(last[EQ.TIPO_IMP]),TipoImpiegoRaw:String(last[EQ.TIPO_IMP]||"").trim(),
+    TipoServizio:eqCode(last[EQ.TIPO_SERV]),
+    Contratto:eqCode(last[EQ.CONTRATTO]),
+    Qualifica:eqCode(last[EQ.QUALIFICA]),QualificaRaw:String(last[EQ.QUALIFICA]||"").trim(),
+    RegimeFineServizio:String(last[EQ.REGIME_FS]||"3").trim(),
+    CodiceCessazione:String(last[EQ.CESSAZIONE]||"").trim(),
+    hasPartTime:isPartTime,
+    TipoPartTime:eqMapTipoPartTime(last[EQ.TIPO_PT]),TipoPartTimeRaw:String(last[EQ.TIPO_PT]||"").trim(),
+    PercPartTime:percUE>0?String(percUE):"",
+    regimeTFS,
+  };
+
+  /* Period range from selected rows */
+  const starts=cfRows.map(r=>eqDateStr(r[EQ.DATA_INI])).filter(Boolean).sort();
+  const ends  =cfRows.map(r=>eqDateStr(r[EQ.DATA_FIN])).filter(Boolean).sort();
+  return{yearTotals,anagrafica,dateFrom:starts[0]||"",dateTo:ends[ends.length-1]||""};
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -489,7 +558,7 @@ const C = {
   thR: { background: "#180606", padding: "3px 6px", textAlign: "right", color: "#804040", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #162840", whiteSpace: "nowrap" },
   td: { padding: "3px 4px", borderBottom: "1px solid #0d1c2c", verticalAlign: "top" },
   tdR: { padding: "3px 4px", borderBottom: "1px solid #0d1c2c", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" },
-  sumRow: (s) => ({ background: s==="over"?"#2a0808":s==="under"?"#1a1200":"#061a0e", fontWeight:"700" }),
+  sumRow: (over) => ({ background: over ? "#2a0808" : "#061a0e", fontWeight: "700" }),
   bdg: (c) => ({ background: c+"22", color: c, padding: "1px 6px", borderRadius: "3px", fontSize: "10px", fontWeight: "700", fontFamily: "monospace", whiteSpace: "nowrap" }),
   mono: { fontFamily: "monospace", fontSize: "11px" },
   empty: { textAlign: "center", color: "#1a3050", padding: "30px", fontSize: "12px" },
@@ -538,6 +607,7 @@ export default function UniEmensBuilder() {
   const [showReset, setShowReset] = useState(false);
   const [importModal, setImportModal] = useState(null);
   const [cumuloModal, setCumuloModal] = useState(null); // { mittente, azienda, isVariazione, workers, errors, selected }
+  const [xlsxImp, setXlsxImp] = useState(null); // INPS ElencoQuadri import modal
   const fileRef = useRef(null);
 
   const mf = (k) => (v) => setM(p=>({...p,[k]:v}));
@@ -598,9 +668,64 @@ export default function UniEmensBuilder() {
     return u;
   })}));
   const cumuloStep2=()=>{
-    const{inq}=cumuloModal;
+    const{inq,yearRows}=cumuloModal;
     if(!inq.dateFrom||!inq.dateTo||inq.dateFrom>inq.dateTo)return;
-    setCumuloModal(p=>({...p,step:2,yearRows:initYearRows(inq.dateFrom,inq.dateTo)}));
+    /* Preserve yearRows pre-populate se già allineati al periodo corrente */
+    const expYears=[...new Set(buildMonthList(inq.dateFrom,inq.dateTo).map(m=>m.year))];
+    const existYears=yearRows.map(r=>r.anno);
+    const aligned=expYears.length===existYears.length&&expYears.every((y,i)=>y===existYears[i]);
+    setCumuloModal(p=>({...p,step:2,yearRows:(aligned&&yearRows.length>0)?yearRows:initYearRows(inq.dateFrom,inq.dateTo)}));
+  };
+
+  /* ── XLSX IMPORT (ElencoQuadri E0/V1) ── */
+  const xlsxImpRef=useRef(null);
+  const openXlsxImp=(dipId)=>setXlsxImp({dipId,rawRows:null,selCf:"",availYears:[],selYears:new Set()});
+  const onXlsxFile=(file)=>{
+    if(!file||!file.name.endsWith(".xlsx"))return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const wb=XLSX.read(e.target.result,{type:"array",raw:false,cellDates:false});
+      const rows=eqLoadRows(wb);
+      const cfList=eqGetCFs(rows);
+      const dipCF=dips.find(d=>d.id===xlsxImp?.dipId)?.CFLavoratore||"";
+      const autoSel=cfList.includes(dipCF)?dipCF:(cfList.length===1?cfList[0]:"");
+      const availYears=autoSel?eqGetYears(rows,autoSel):[];
+      setXlsxImp(p=>({...p,rawRows:rows,cfList,selCf:autoSel,availYears,selYears:new Set()}));
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  const xlsxImpSetCf=(cf)=>{
+    const availYears=eqGetYears(xlsxImp.rawRows,cf);
+    setXlsxImp(p=>({...p,selCf:cf,availYears,selYears:new Set()}));
+  };
+  const xlsxImpToggleYear=(yr)=>setXlsxImp(p=>{
+    const s=new Set(p.selYears);s.has(yr)?s.delete(yr):s.add(yr);return{...p,selYears:s};
+  });
+  const confirmXlsxImp=()=>{
+    const{dipId,rawRows,selCf,selYears}=xlsxImp;
+    const{yearTotals,anagrafica,dateFrom,dateTo}=eqAggregate(rawRows,selCf,selYears);
+    const lastYr=yearTotals[yearTotals.length-1];
+    const inq={
+      ...EMPTY_INQ,dateFrom,dateTo,
+      TipoImpiego:anagrafica.TipoImpiego||"1",TipoServizio:anagrafica.TipoServizio||"4",
+      Contratto:anagrafica.Contratto||"RALN",Qualifica:anagrafica.Qualifica||"",
+      RegimeFineServizio:anagrafica.RegimeFineServizio||"3",CodiceCessazione:anagrafica.CodiceCessazione||"",
+      hasPartTime:anagrafica.hasPartTime,TipoPartTime:anagrafica.TipoPartTime||"O",
+      PercPartTime:anagrafica.PercPartTime||"",regimeTFS:anagrafica.regimeTFS||"TFS",
+      StipTabellare:lastYr?.StipTabellare||"0,00",RetribAnzianita:lastYr?.RetribAnzianita||"0,00",
+    };
+    const baseYearRows=initYearRows(dateFrom,dateTo);
+    const yearRows=baseYearRows.map(yr=>{
+      const imp=yearTotals.find(t=>t.anno===yr.anno);
+      if(!imp)return yr;
+      return{...yr,ImpCPDEL:imp.ImpCPDEL,ContribCPDEL:imp.ContribCPDEL,
+        Contrib1Perc:imp.Contrib1Perc,StipTabellare:imp.StipTabellare||yr.StipTabellare,
+        RetribAnzianita:imp.RetribAnzianita||yr.RetribAnzianita,
+        regimeTFS:imp.regimeTFS,ImpTFS:imp.ImpTFS,ContribTFS:imp.ContribTFS,
+        ContribCredito:imp.ContribCreditoStr,ImpSol:imp.ImpSol,ContribSol:imp.ContribSol};
+    });
+    setXlsxImp(null);
+    setCumuloModal({step:1,dipId,inq,yearRows,evGrid:[],allMonths:[]});
   };
   const cumuloStep3=()=>{
     const{inq,yearRows}=cumuloModal;
@@ -716,8 +841,7 @@ export default function UniEmensBuilder() {
     if(!p.ImpCPDEL)return false;
     const{sumImpTC1,sumImpTC9,sumContribTC1}=evSums(p);
     const lc=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
-    const ic=parseIt(p.ImpCPDEL);
-    return Math.abs(sumImpTC1-ic)>0.005||Math.abs(sumContribTC1-lc)>0.005||(p.ImpCredito&&Math.abs(sumImpTC9-parseIt(p.ImpCredito))>0.005);
+    return sumImpTC1>parseIt(p.ImpCPDEL)+0.005||sumContribTC1>lc+0.005||(p.ImpCredito&&sumImpTC9>parseIt(p.ImpCredito)+0.005);
   };
 
   /* ════ RENDER periodo ════ */
@@ -727,16 +851,8 @@ export default function UniEmensBuilder() {
     const impCred=parseIt(p.ImpCredito);
     const limitContrib=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
     const over171=p.ImpCPDEL&&sumImpTC1>impCPDEL+0.005;
-    const under171=p.ImpCPDEL&&sumImpTC1<impCPDEL-0.005;
-    const st171=over171?"over":under171?"under":"ok";
     const over032=p.ImpCredito&&sumImpTC9>impCred+0.005;
-    const under032=p.ImpCredito&&sumImpTC9<impCred-0.005;
-    const st032=over032?"over":under032?"under":"ok";
     const over172=p.ImpCPDEL&&sumContribTC1>limitContrib+0.005;
-    const under172=p.ImpCPDEL&&sumContribTC1<limitContrib-0.005;
-    const st172=over172?"over":under172?"under":"ok";
-    const dateErrs=checkDateErrors(p.GiornoInizio,p.GiornoFine);
-    const dateSplit=dateErrs.length?splitPeriods(p.GiornoInizio,p.GiornoFine):[];
     return(
     <div style={C.cBody}>
       <div style={C.sub}>
@@ -747,44 +863,6 @@ export default function UniEmensBuilder() {
           <F label="Giorno fine" value={p.GiornoFine} onChange={v=>updPer(dip.id,p.id,"GiornoFine",v)} ph="YYYY-MM-DD" w="130px"/>
           <F label="Cod. cessazione" value={p.CodiceCessazione} onChange={v=>updPer(dip.id,p.id,"CodiceCessazione",v)} ph="es. 3" w="108px"/>
         </div>
-        {dateErrs.length>0&&(
-          <div style={{marginTop:"8px",background:"#1a0a00",border:"1px solid #8a3a00",borderRadius:"4px",padding:"8px 10px",fontSize:"11px"}}>
-            <div style={{fontWeight:"700",color:"#f08030",marginBottom:"5px"}}>
-              ⚠ Errore date periodo — {dateErrs.join(" + ")}
-            </div>
-            <div style={{color:"#c07040",marginBottom:"6px",lineHeight:"1.5"}}>
-              {dateErrs.includes("00024I")&&<span>GiornoInizio e GiornoFine appartengono ad anni diversi. </span>}
-              {dateErrs.includes("00311I")&&<span>Da ottobre 2012 ogni periodo deve essere confinato allo stesso mese. </span>}
-              Il flusso verrà rifiutato da INPS.
-            </div>
-            {dateSplit.length>1&&(<>
-              <div style={{color:"#e09050",fontWeight:"700",marginBottom:"4px",fontSize:"10px"}}>
-                ↳ Suddividere in {dateSplit.length} periodi V1 distinti (causale {p.CausaleVariazione}):
-              </div>
-              <table style={{borderCollapse:"collapse",fontSize:"10px",width:"auto"}}>
-                <thead>
-                  <tr>
-                    <th style={{...C.th,padding:"2px 8px"}}>#</th>
-                    <th style={{...C.th,padding:"2px 8px"}}>GiornoInizio</th>
-                    <th style={{...C.th,padding:"2px 8px"}}>GiornoFine</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dateSplit.map((s,i)=>(
-                    <tr key={i} style={{background:i%2?"#0d1a08":"#071208"}}>
-                      <td style={{...C.td,padding:"2px 8px",color:"#806040",textAlign:"center"}}>{i+1}</td>
-                      <td style={{...C.td,padding:"2px 8px",color:"#80c870",fontFamily:"monospace"}}>{s.from}</td>
-                      <td style={{...C.td,padding:"2px 8px",color:"#80c870",fontFamily:"monospace"}}>{s.to}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div style={{fontSize:"9px",color:"#604020",marginTop:"4px"}}>
-                Importi EnteVersante: ripartire proporzionalmente per mese tramite "∑ Cumulo mensilità".
-              </div>
-            </>)}
-          </div>
-        )}
       </div>
 
       <div style={C.sub}>
@@ -899,35 +977,35 @@ export default function UniEmensBuilder() {
               </thead>
               <tbody>
                 {/* 00171I */}
-                <tr style={C.sumRow(st171)}>
-                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over171?"#e08080":under171?"#e0a020":"#60a890"}}>00171I</span> Σ Imponibile TC1</td>
-                  <td style={{...C.tdR,color:over171?"#f0a0a0":under171?"#f0c860":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC1))}</td>
+                <tr style={C.sumRow(over171)}>
+                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over171?"#e08080":"#60a890"}}>00171I</span> Σ Imponibile TC1</td>
+                  <td style={{...C.tdR,color:over171?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC1))}</td>
                   <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ImpCPDEL)}</td>
-                  <td style={{...C.tdR,color:over171?"#f05050":under171?"#e0a020":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC1-impCPDEL)))}</td>
-                  <td style={C.td}>{over171?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:under171?<span style={{color:"#e0a020",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
+                  <td style={{...C.tdR,color:over171?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC1-impCPDEL)))}</td>
+                  <td style={C.td}>{over171?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                 </tr>
                 {/* 00032I */}
                 {p.ImpCredito&&(
-                  <tr style={C.sumRow(st032)}>
-                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032?"#e08080":under032?"#e0a020":"#60a890"}}>00032I</span> Σ Imponibile TC9</td>
-                    <td style={{...C.tdR,color:over032?"#f0a0a0":under032?"#f0c860":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC9))}</td>
+                  <tr style={C.sumRow(over032)}>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032?"#e08080":"#60a890"}}>00032I</span> Σ Imponibile TC9</td>
+                    <td style={{...C.tdR,color:over032?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC9))}</td>
                     <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ImpCredito)}</td>
-                    <td style={{...C.tdR,color:over032?"#f05050":under032?"#e0a020":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC9-impCred)))}</td>
-                    <td style={C.td}>{over032?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:under032?<span style={{color:"#e0a020",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
+                    <td style={{...C.tdR,color:over032?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC9-impCred)))}</td>
+                    <td style={C.td}>{over032?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
                 )}
                 {/* 00172I */}
-                <tr style={C.sumRow(st172)}>
-                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#e08080":under172?"#e0a020":"#60a890"}}>00172I</span> Σ Contributo TC1+TC5</td>
-                  <td style={{...C.tdR,color:over172?"#f0a0a0":under172?"#f0c860":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
+                <tr style={C.sumRow(over172)}>
+                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#e08080":"#60a890"}}>00172I</span> Σ Contributo TC1+TC5</td>
+                  <td style={{...C.tdR,color:over172?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
                   <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(String(limitContrib))} (CPDEL+1%)</td>
-                  <td style={{...C.tdR,color:over172?"#f05050":under172?"#e0a020":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
-                  <td style={C.td}>{over172?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:under172?<span style={{color:"#e0a020",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
+                  <td style={{...C.tdR,color:over172?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
+                  <td style={C.td}>{over172?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                 </tr>
               </tbody>
             </table>
             <div style={{fontSize:"9px",color:"#1a4060",padding:"3px 8px"}}>
-              Valori negativi = importo non ancora coperto. Valori positivi = eccesso da correggere. ✓ OK = copertura esatta. ⚠ RESIDUO (arancio) = somma EV incompleta. ⚠ ECCESSO (rosso) = violazione INPS.
+              Valori negativi = margine residuo. Valori positivi = eccesso da correggere prima del passaggio al sw INPS.
             </div>
           </div>
         )}
@@ -953,6 +1031,7 @@ export default function UniEmensBuilder() {
         <div style={{display:"flex",gap:"6px"}}>
           <button style={C.btn("p")} onClick={()=>addPer(dip.id)}>+ Aggiungi periodo V1</button>
           <button style={{...C.btn("cum"),padding:"4px 11px"}} onClick={()=>openCumulo(dip.id)}>∑ Cumulo mensilità</button>
+          <button style={{...C.btn("imp"),padding:"4px 11px"}} onClick={()=>openXlsxImp(dip.id)}>📂 Importa INPS</button>
         </div>
       </div>
       {dip.periodi.length===0&&<div style={C.empty}>Nessun periodo V1.</div>}
@@ -980,6 +1059,166 @@ export default function UniEmensBuilder() {
   /* ════ MAIN RENDER ════ */
   return(
     <div style={C.app}>
+
+      {/* ════ MODALE IMPORT EXCEL INPS (ElencoQuadri E0/V1) ════ */}
+      {xlsxImp&&(()=>{
+        const{dipId,rawRows,cfList,selCf,availYears,selYears}=xlsxImp;
+        const dipCF=dips.find(d=>d.id===dipId)?.CFLavoratore||"";
+        const hasData=rawRows!==null;
+        const hasYears=selYears.size>0;
+        const agg=hasData&&selCf&&hasYears?eqAggregate(rawRows,selCf,selYears):null;
+        const existC5=dips.find(d=>d.id===dipId)?.periodi?.filter(p=>p.CausaleVariazione==="5")||[];
+        const tdP={padding:"4px 8px",fontSize:"11px",borderBottom:"1px solid #0d1c2c",fontFamily:"monospace"};
+        const tdL={...tdP,color:"#3a6080",fontFamily:"sans-serif",fontSize:"10px",textTransform:"uppercase",letterSpacing:"0.4px"};
+        const FLDS=[
+          {k:"ImpCPDEL",l:"Imp. CPDEL"},
+          {k:"ContribCPDEL",l:"Cont. CPDEL"},
+          {k:"Contrib1Perc",l:"Cont. 1%"},
+          {k:"ImpTFS",l:"Imp. TFR/TFS"},
+          {k:"ContribTFS",l:"Cont. TFR/TFS"},
+          {k:"ContribCreditoStr",l:"Cont. Credito"},
+          {k:"ImpSol",l:"L166 Imp."},
+          {k:"ContribSol",l:"L166 Cont."},
+          {k:"StipTabellare",l:"Stip. Tab."},
+          {k:"RetribAnzianita",l:"Ret. Anz."},
+        ];
+        return(
+          <div style={C.modal}>
+            <div style={{...C.modalBox,maxWidth:"820px",width:"96%",maxHeight:"90vh",overflowY:"auto",border:"1px solid #204060"}}>
+              {/* Header */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}}>
+                <span style={{fontWeight:"700",fontSize:"13px",color:"#00c8e0"}}>📂 Importa INPS — ElencoQuadri E0/V1</span>
+                <button style={C.btn("x")} onClick={()=>setXlsxImp(null)}>✕</button>
+              </div>
+              <div style={{fontSize:"10px",color:"#3a6080",marginBottom:"10px"}}>
+                Filtro attivo: <strong style={{color:"#4a90a0"}}>Corrente · E0 + V1 (causale ≠ 5)</strong> · CF rilevato da anagrafica: <strong style={{color:"#80c0e0"}}>{dipCF||"—"}</strong>
+              </div>
+
+              {/* Drop zone */}
+              <div style={{border:"1.5px dashed #1a4060",borderRadius:"6px",padding:"18px",textAlign:"center",marginBottom:"10px",cursor:"pointer",background:"#050e1a"}}
+                onClick={()=>xlsxImpRef.current?.click()}
+                onDragOver={e=>e.preventDefault()}
+                onDrop={e=>{e.preventDefault();onXlsxFile(e.dataTransfer.files[0]);}}>
+                {!hasData
+                  ?<><div style={{color:"#4a80a0",fontSize:"12px",fontWeight:"600"}}>Trascina il file Excel oppure clicca per selezionare</div>
+                    <div style={{color:"#2a5060",fontSize:"10px",marginTop:"4px"}}>ElencoQuadriE0eV1_*.xlsx</div></>
+                  :<div style={{color:"#40c870",fontSize:"12px",fontWeight:"600"}}>✓ File caricato · {rawRows.length} righe filtrate (Corrente · E0/V1-C1)</div>
+                }
+              </div>
+              <input ref={xlsxImpRef} type="file" accept=".xlsx" style={{display:"none"}}
+                onChange={e=>{onXlsxFile(e.target.files[0]);e.target.value="";}}/>
+
+              {/* CF Selection */}
+              {hasData&&(
+                <div style={{...C.sub,marginBottom:"8px"}}>
+                  <div style={C.subT}>Codice Fiscale lavoratore</div>
+                  {cfList.length===0
+                    ?<div style={{color:"#f05050",fontSize:"11px"}}>Nessun CF trovato con filtro attivo.</div>
+                    :<div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                      {cfList.map(cf=>(
+                        <span key={cf} onClick={()=>xlsxImpSetCf(cf)}
+                          style={{padding:"4px 12px",borderRadius:"20px",border:"1px solid",cursor:"pointer",fontSize:"12px",fontFamily:"monospace",
+                            borderColor:cf===selCf?"#4090c0":"#1a3550",
+                            background:cf===selCf?"#0a2a40":"#050e1a",
+                            color:cf===selCf?"#80d0f0":"#4a7090"}}>
+                          {cf}{cf===dipCF&&<span style={{marginLeft:"6px",fontSize:"9px",color:"#40c870"}}>↔ match</span>}
+                        </span>
+                      ))}
+                    </div>
+                  }
+                </div>
+              )}
+
+              {/* Year Selection */}
+              {hasData&&selCf&&(
+                <div style={{...C.sub,marginBottom:"8px"}}>
+                  <div style={C.subT}>Annualità da includere</div>
+                  <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                    {availYears.map(yr=>(
+                      <span key={yr} onClick={()=>xlsxImpToggleYear(yr)}
+                        style={{padding:"4px 14px",borderRadius:"20px",border:"1px solid",cursor:"pointer",fontSize:"12px",fontWeight:"600",
+                          borderColor:selYears.has(yr)?"#60a0e0":"#1a3550",
+                          background:selYears.has(yr)?"#0a2040":"#050e1a",
+                          color:selYears.has(yr)?"#a0d0ff":"#3a5070"}}>
+                        {yr}
+                      </span>
+                    ))}
+                  </div>
+                  {availYears.length===0&&<div style={{color:"#f0a040",fontSize:"10px"}}>Nessuna annualità trovata per questo CF.</div>}
+                </div>
+              )}
+
+              {/* Preview */}
+              {agg&&(
+                <>
+                  {/* Anagrafica preview */}
+                  <div style={{...C.sub,marginBottom:"8px"}}>
+                    <div style={C.subT}>Anteprima anagrafica (step 1 Cumulo — verifica obbligatoria)</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"4px 16px",fontSize:"11px"}}>
+                      {[
+                        {l:"Periodo",v:`${agg.dateFrom} → ${agg.dateTo}`},
+                        {l:"Tipo Impiego",v:agg.anagrafica.TipoImpiego,raw:agg.anagrafica.TipoImpiegoRaw,warn:true},
+                        {l:"Tipo Servizio",v:agg.anagrafica.TipoServizio},
+                        {l:"Contratto",v:agg.anagrafica.Contratto},
+                        {l:"Qualifica",v:agg.anagrafica.Qualifica,raw:agg.anagrafica.QualificaRaw,warn:true},
+                        {l:"Regime FS",v:agg.anagrafica.RegimeFineServizio},
+                        {l:"Regime TFS/TFR",v:agg.anagrafica.regimeTFS},
+                        {l:"Part-time",v:agg.anagrafica.hasPartTime?"✓ Sì":"✗ No"},
+                        agg.anagrafica.hasPartTime&&{l:"Tipo PT",v:agg.anagrafica.TipoPartTime,raw:agg.anagrafica.TipoPartTimeRaw,warn:true},
+                        agg.anagrafica.hasPartTime&&{l:"% PT (×1000)",v:agg.anagrafica.PercPartTime||"—"},
+                        {l:"Cessazione",v:agg.anagrafica.CodiceCessazione||"—"},
+                      ].filter(Boolean).map((f,i)=>(
+                        <div key={i} style={{background:"#050d18",borderRadius:"3px",padding:"4px 7px",border:`1px solid ${f.warn?"#3a4a10":"#0d1c2c"}`}}>
+                          <div style={{fontSize:"9px",color:f.warn?"#8a9030":"#2a5070",textTransform:"uppercase",marginBottom:"2px"}}>{f.l}{f.warn&&<span style={{color:"#c0b030",marginLeft:"4px"}}>⚠ verifica</span>}</div>
+                          <div style={{color:f.warn?"#d0c070":"#80c0e0",fontFamily:"monospace"}}>{f.v}</div>
+                          {f.raw&&f.raw!==f.v&&<div style={{color:"#4a5020",fontSize:"9px"}}>PASSWEB: {f.raw}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Financial totals per year */}
+                  <div style={{...C.sub,marginBottom:"8px"}}>
+                    <div style={C.subT}>Totali per anno (step 2 Cumulo)</div>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{borderCollapse:"collapse",fontSize:"11px",width:"100%"}}>
+                        <thead>
+                          <tr>
+                            <th style={{...C.th,position:"sticky",left:0}}>Anno</th>
+                            {FLDS.map(f=><th key={f.k} style={C.th}>{f.l}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {agg.yearTotals.map(yr=>(
+                            <tr key={yr.anno}>
+                              <td style={{...tdP,color:"#80c0e0",fontWeight:"700",position:"sticky",left:0,background:"#0e1d30"}}>{yr.anno}</td>
+                              {FLDS.map(f=><td key={f.k} style={{...tdP,color:parseIt(yr[f.k])>0?"#90e0b0":"#2a5060"}}>{yr[f.k]}</td>)}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {existC5.length>0&&(
+                    <div style={{background:"#1a0a05",border:"1px solid #6a2a10",borderRadius:"4px",padding:"7px 10px",fontSize:"10px",color:"#e08060",marginBottom:"8px"}}>
+                      ⚠ Trovato{existC5.length>1?"i":""} <strong>{existC5.length}</strong> periodo{existC5.length>1?"i":""} V1 C5 già presente{existC5.length>1?"i":""}. Confermando verrà creato un nuovo Cumulo aggiuntivo — verificare eventuale duplicato prima dell'export XML.
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Footer */}
+              <div style={{display:"flex",gap:"8px",justifyContent:"flex-end",marginTop:"12px"}}>
+                <button style={C.btn()} onClick={()=>setXlsxImp(null)}>Annulla</button>
+                <button style={{...C.btn("p"),opacity:agg?1:0.35}} disabled={!agg} onClick={confirmXlsxImp}>
+                  Avvia Cumulo precompilato →
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ════ MODALE CUMULO MENSILITÀ ════ */}
       {cumuloModal&&(()=>{
