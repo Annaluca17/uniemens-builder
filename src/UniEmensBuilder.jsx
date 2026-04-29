@@ -76,6 +76,57 @@ const EMPTY_INQ={dateFrom:"",dateTo:"",TipoImpiego:"1",TipoServizio:"4",
   StipTabellare:"0,00",RetribAnzianita:"0,00"};
 
 
+/* ════ VALIDAZIONE DATE PERIODO V1 (00024I / 00311I) ════ */
+function lastDayOf(y,m){return new Date(y,m,0).getDate();}
+function splitPeriods(from,to){
+  if(!from||!to||from>to)return[];
+  const[fy,fm,fd]=from.split("-").map(Number);
+  const[ty,tm,td]=to.split("-").map(Number);
+  // Costruisce lista di {y,m}
+  const months=[];let cy=fy,cm=fm;
+  while(cy<ty||(cy===ty&&cm<=tm)){
+    months.push({y:cy,m:cm});
+    cm++;if(cm>12){cm=1;cy++;}
+  }
+  // Raggruppa: ante 2012-10 → per anno; da 2012-10 → per mese
+  const groups=[];let i=0;
+  while(i<months.length){
+    const{y:ny,m:nm}=months[i];
+    const mono=(ny>2012)||(ny===2012&&nm>=10);
+    if(mono){groups.push([months[i]]);i++;}
+    else{
+      const yr=ny;const g=[];
+      while(i<months.length){
+        const{y:gy,m:gm}=months[i];
+        if(gy!==yr||(gy===2012&&gm>=10))break;
+        g.push(months[i]);i++;
+      }
+      groups.push(g);
+    }
+  }
+  return groups.map((g,gi)=>{
+    const f=g[0],l=g[g.length-1];
+    const pFrom=gi===0?from:`${f.y}-${String(f.m).padStart(2,"0")}-01`;
+    const pTo=gi===groups.length-1?to:`${l.y}-${String(l.m).padStart(2,"0")}-${String(lastDayOf(l.y,l.m)).padStart(2,"0")}`;
+    return{from:pFrom,to:pTo};
+  });
+}
+function checkDateErrors(from,to){
+  if(!from||!to||from.length<10||to.length<10)return[];
+  const[fy]=from.split("-").map(Number);
+  const[ty,tm]=to.split("-").map(Number);
+  const errs=[];
+  if(fy!==ty)errs.push("00024I");
+  if((ty>2012||(ty===2012&&tm>=10))&&errs.indexOf("00024I")===-1){
+    const[,fm]=from.split("-").map(Number);
+    if(fm!==tm)errs.push("00311I");
+  }
+  // Se 00024I c'è già, 00311I è implicito ma non va duplicato
+  if(errs.includes("00024I")&&(ty>2012||(ty===2012&&tm>=10)))
+    !errs.includes("00311I")&&errs.push("00311I");
+  return errs;
+}
+
 /* ════════════════════════════════════════════════════════════
    XML PARSER — importa flussi variazione e standard DMA2
 ════════════════════════════════════════════════════════════ */
@@ -684,6 +735,8 @@ export default function UniEmensBuilder() {
     const over172=p.ImpCPDEL&&sumContribTC1>limitContrib+0.005;
     const under172=p.ImpCPDEL&&sumContribTC1<limitContrib-0.005;
     const st172=over172?"over":under172?"under":"ok";
+    const dateErrs=checkDateErrors(p.GiornoInizio,p.GiornoFine);
+    const dateSplit=dateErrs.length?splitPeriods(p.GiornoInizio,p.GiornoFine):[];
     return(
     <div style={C.cBody}>
       <div style={C.sub}>
@@ -694,6 +747,44 @@ export default function UniEmensBuilder() {
           <F label="Giorno fine" value={p.GiornoFine} onChange={v=>updPer(dip.id,p.id,"GiornoFine",v)} ph="YYYY-MM-DD" w="130px"/>
           <F label="Cod. cessazione" value={p.CodiceCessazione} onChange={v=>updPer(dip.id,p.id,"CodiceCessazione",v)} ph="es. 3" w="108px"/>
         </div>
+        {dateErrs.length>0&&(
+          <div style={{marginTop:"8px",background:"#1a0a00",border:"1px solid #8a3a00",borderRadius:"4px",padding:"8px 10px",fontSize:"11px"}}>
+            <div style={{fontWeight:"700",color:"#f08030",marginBottom:"5px"}}>
+              ⚠ Errore date periodo — {dateErrs.join(" + ")}
+            </div>
+            <div style={{color:"#c07040",marginBottom:"6px",lineHeight:"1.5"}}>
+              {dateErrs.includes("00024I")&&<span>GiornoInizio e GiornoFine appartengono ad anni diversi. </span>}
+              {dateErrs.includes("00311I")&&<span>Da ottobre 2012 ogni periodo deve essere confinato allo stesso mese. </span>}
+              Il flusso verrà rifiutato da INPS.
+            </div>
+            {dateSplit.length>1&&(<>
+              <div style={{color:"#e09050",fontWeight:"700",marginBottom:"4px",fontSize:"10px"}}>
+                ↳ Suddividere in {dateSplit.length} periodi V1 distinti (causale {p.CausaleVariazione}):
+              </div>
+              <table style={{borderCollapse:"collapse",fontSize:"10px",width:"auto"}}>
+                <thead>
+                  <tr>
+                    <th style={{...C.th,padding:"2px 8px"}}>#</th>
+                    <th style={{...C.th,padding:"2px 8px"}}>GiornoInizio</th>
+                    <th style={{...C.th,padding:"2px 8px"}}>GiornoFine</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dateSplit.map((s,i)=>(
+                    <tr key={i} style={{background:i%2?"#0d1a08":"#071208"}}>
+                      <td style={{...C.td,padding:"2px 8px",color:"#806040",textAlign:"center"}}>{i+1}</td>
+                      <td style={{...C.td,padding:"2px 8px",color:"#80c870",fontFamily:"monospace"}}>{s.from}</td>
+                      <td style={{...C.td,padding:"2px 8px",color:"#80c870",fontFamily:"monospace"}}>{s.to}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{fontSize:"9px",color:"#604020",marginTop:"4px"}}>
+                Importi EnteVersante: ripartire proporzionalmente per mese tramite "∑ Cumulo mensilità".
+              </div>
+            </>)}
+          </div>
+        )}
       </div>
 
       <div style={C.sub}>
