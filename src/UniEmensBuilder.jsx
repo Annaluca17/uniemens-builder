@@ -559,34 +559,38 @@ export default function UniEmensBuilder() {
   const confirmCumulo=()=>{
     const{dipId,inq,evGrid}=cumuloModal;
     const cfAz=a.CFAzienda,prg=a.PRGAZIENDA||"00000";
-    const sumOf=key=>toIt(String(round2(evGrid.reduce((s,r)=>s+parseIt(r[key]),0))));
     const hasTFS=evGrid.some(r=>parseIt(r.tc7Imp)>0);
     const hasC1=evGrid.some(r=>parseIt(r.tc6Cont)>0);
     const hasSol=evGrid.some(r=>parseIt(r.tcSCont)>0);
-    const evList=[];
-    evGrid.forEach(row=>{
+    // 1 V1_PeriodoPrecedente per mese — conforme DMA2 (cfr. Halley)
+    const lastDay=(annoMese)=>{const[y,m]=annoMese.split("-").map(Number);return new Date(y,m,0).getDate();};
+    const nuoviPeriodi=evGrid.map(row=>{
       const t1=uid(),t9=uid();
+      const evList=[];
       evList.push({id:t1,TipoContributo:"1",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc1Imp,Contributo:row.tc1Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2",pairedTc9:t9});
       evList.push({id:t9,TipoContributo:"9",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc9Imp,Contributo:row.tc9Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2",pairedWith:t1});
       if(hasTFS&&parseIt(row.tc7Imp)>0)evList.push({id:uid(),TipoContributo:"7",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc7Imp,Contributo:row.tc7Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2"});
       if(hasC1&&parseIt(row.tc6Cont)>0)evList.push({id:uid(),TipoContributo:"6",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc6Imp,Contributo:row.tc6Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2"});
       if(hasSol&&parseIt(row.tcSCont)>0)evList.push({id:uid(),TipoContributo:"6",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tcSImp,Contributo:row.tcSCont,AnnoMeseErogazione:row.annoMese,Aliquota:"2"});
+      const ld=String(lastDay(row.annoMese)).padStart(2,"0");
+      return{
+        id:uid(),CausaleVariazione:"5",
+        GiornoInizio:`${row.annoMese}-01`,GiornoFine:`${row.annoMese}-${ld}`,
+        TipoImpiego:inq.TipoImpiego,TipoServizio:inq.TipoServizio,Contratto:inq.Contratto,Qualifica:inq.Qualifica,
+        hasPartTime:inq.hasPartTime,TipoPartTime:inq.TipoPartTime,PercPartTime:inq.PercPartTime,
+        RegimeFineServizio:inq.RegimeFineServizio,CodiceCessazione:inq.CodiceCessazione||"",
+        ImpCPDEL:row.tc1Imp,ContribCPDEL:row.tc1Cont,
+        Contrib1Perc:hasC1?row.tc6Cont:"",
+        StipTabellare:inq.StipTabellare||"0,00",RetribAnzianita:inq.RetribAnzianita||"0,00",
+        regimeTFS:inq.regimeTFS||"TFS",
+        ImpTFS:hasTFS&&parseIt(row.tc7Imp)>0?row.tc7Imp:"",
+        ContribTFS:hasTFS&&parseIt(row.tc7Imp)>0?row.tc7Cont:"",
+        ImpCredito:row.tc9Imp,ContribCredito:row.tc9Cont,
+        enteVersante:evList,
+      };
     });
-    const periodo={
-      id:uid(),CausaleVariazione:"5",GiornoInizio:inq.dateFrom,GiornoFine:inq.dateTo,
-      TipoImpiego:inq.TipoImpiego,TipoServizio:inq.TipoServizio,Contratto:inq.Contratto,Qualifica:inq.Qualifica,
-      hasPartTime:inq.hasPartTime,TipoPartTime:inq.TipoPartTime,PercPartTime:inq.PercPartTime,
-      RegimeFineServizio:inq.RegimeFineServizio,CodiceCessazione:inq.CodiceCessazione||"",
-      ImpCPDEL:sumOf("tc1Imp"),ContribCPDEL:sumOf("tc1Cont"),
-      Contrib1Perc:hasC1?sumOf("tc6Cont"):"",
-      StipTabellare:inq.StipTabellare||"0,00",RetribAnzianita:inq.RetribAnzianita||"0,00",
-      regimeTFS:inq.regimeTFS||"TFS",
-      ImpTFS:hasTFS?sumOf("tc7Imp"):"",ContribTFS:hasTFS?sumOf("tc7Cont"):"",
-      ImpCredito:sumOf("tc9Imp"),ContribCredito:sumOf("tc9Cont"),
-      enteVersante:evList,
-    };
-    setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:[...d.periodi,periodo]}:d));
-    setXDip(dipId);setXPer(periodo.id);setCumuloModal(null);
+    setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:[...d.periodi,...nuoviPeriodi]}:d));
+    setXDip(dipId);setXPer(nuoviPeriodi[0].id);setCumuloModal(null);
   };
 
   /* ── mkPer ── */
