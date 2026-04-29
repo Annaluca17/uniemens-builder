@@ -233,11 +233,10 @@ function buildXML(m, a, dips) {
   x += `      <ListaPosPA TipoListaPosPA="1">\n          <PRGAZIENDA>${esc(a.PRGAZIENDA || "00000")}</PRGAZIENDA>\n          <CFRappresentanteFirmatario>${esc(a.CFRappresentanteFirmatario)}</CFRappresentanteFirmatario>\n          <ISTAT>${esc(a.ISTAT)}</ISTAT>\n          <FormaGiuridica>${esc(a.FormaGiuridica)}</FormaGiuridica>\n`;
   x += `          <PosPA>\n`;
   for (const d of dips) {
-    if (!d.periodi.length) continue;
-    x += `              <D0_DenunciaIndividuale>\n`;
-    x += `                  <CFLavoratore>${esc(d.CFLavoratore)}</CFLavoratore>\n                  <Cognome>${esc(d.Cognome)}</Cognome>\n                  <Nome>${esc(d.Nome)}</Nome>\n`;
-    x += `                  <DatiSedeLavoro>\n                      <CodiceComune>${esc(d.CodiceComune)}</CodiceComune>\n                      <CAP>${esc(d.CAP)}</CAP>\n                  </DatiSedeLavoro>\n`;
     for (const p of d.periodi) {
+      x += `              <D0_DenunciaIndividuale>\n`;
+      x += `                  <CFLavoratore>${esc(d.CFLavoratore)}</CFLavoratore>\n                  <Cognome>${esc(d.Cognome)}</Cognome>\n                  <Nome>${esc(d.Nome)}</Nome>\n`;
+      x += `                  <DatiSedeLavoro>\n                      <CodiceComune>${esc(d.CodiceComune)}</CodiceComune>\n                      <CAP>${esc(d.CAP)}</CAP>\n                  </DatiSedeLavoro>\n`;
       x += `                  <V1_PeriodoPrecedente CausaleVariazione="${esc(p.CausaleVariazione)}">\n`;
       x += `                      <GiornoInizio>${esc(p.GiornoInizio)}</GiornoInizio>\n                      <GiornoFine>${esc(p.GiornoFine)}</GiornoFine>\n`;
       x += `                      <InquadramentoLavPA>\n                          <TipoImpiego>${esc(p.TipoImpiego)}</TipoImpiego>\n                          <TipoServizio>${esc(p.TipoServizio)}</TipoServizio>\n                          <Contratto>${esc(p.Contratto)}</Contratto>\n                          <Qualifica>${esc(p.Qualifica)}</Qualifica>\n`;
@@ -261,9 +260,8 @@ function buildXML(m, a, dips) {
       for (const ev of p.enteVersante) {
         x += `                      <EnteVersante>\n                          <TipoContributo>${esc(ev.TipoContributo)}</TipoContributo>\n                          <CFAzienda>${esc(ev.CFAzienda)}</CFAzienda>\n                          <PRGAZIENDA>${esc(ev.PRGAZIENDA || "00000")}</PRGAZIENDA>\n                          <Imponibile>${toIt(ev.Imponibile)}</Imponibile>\n                          <Contributo>${toIt(ev.Contributo)}</Contributo>\n                          <AnnoMeseErogazione>${esc(ev.AnnoMeseErogazione)}</AnnoMeseErogazione>\n                          <Aliquota>${esc(ev.Aliquota || "2")}</Aliquota>\n                      </EnteVersante>\n`;
       }
-      x += `                  </V1_PeriodoPrecedente>\n`;
+      x += `                  </V1_PeriodoPrecedente>\n              </D0_DenunciaIndividuale>\n`;
     }
-    x += `              </D0_DenunciaIndividuale>\n`;
   }
   x += `          </PosPA>\n      </ListaPosPA>\n   </Azienda>\n</DenunceMensili>`;
   return x;
@@ -440,7 +438,7 @@ const C = {
   thR: { background: "#180606", padding: "3px 6px", textAlign: "right", color: "#804040", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #162840", whiteSpace: "nowrap" },
   td: { padding: "3px 4px", borderBottom: "1px solid #0d1c2c", verticalAlign: "top" },
   tdR: { padding: "3px 4px", borderBottom: "1px solid #0d1c2c", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" },
-  sumRow: (over) => ({ background: over ? "#2a0808" : "#061a0e", fontWeight: "700" }),
+  sumRow: (s) => ({ background: s==="over"?"#2a0808":s==="under"?"#1a1200":"#061a0e", fontWeight:"700" }),
   bdg: (c) => ({ background: c+"22", color: c, padding: "1px 6px", borderRadius: "3px", fontSize: "10px", fontWeight: "700", fontFamily: "monospace", whiteSpace: "nowrap" }),
   mono: { fontFamily: "monospace", fontSize: "11px" },
   empty: { textAlign: "center", color: "#1a3050", padding: "30px", fontSize: "12px" },
@@ -561,38 +559,34 @@ export default function UniEmensBuilder() {
   const confirmCumulo=()=>{
     const{dipId,inq,evGrid}=cumuloModal;
     const cfAz=a.CFAzienda,prg=a.PRGAZIENDA||"00000";
+    const sumOf=key=>toIt(String(round2(evGrid.reduce((s,r)=>s+parseIt(r[key]),0))));
     const hasTFS=evGrid.some(r=>parseIt(r.tc7Imp)>0);
     const hasC1=evGrid.some(r=>parseIt(r.tc6Cont)>0);
     const hasSol=evGrid.some(r=>parseIt(r.tcSCont)>0);
-    // 1 V1_PeriodoPrecedente per mese — conforme DMA2 (cfr. Halley)
-    const lastDay=(annoMese)=>{const[y,m]=annoMese.split("-").map(Number);return new Date(y,m,0).getDate();};
-    const nuoviPeriodi=evGrid.map(row=>{
+    const evList=[];
+    evGrid.forEach(row=>{
       const t1=uid(),t9=uid();
-      const evList=[];
       evList.push({id:t1,TipoContributo:"1",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc1Imp,Contributo:row.tc1Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2",pairedTc9:t9});
       evList.push({id:t9,TipoContributo:"9",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc9Imp,Contributo:row.tc9Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2",pairedWith:t1});
       if(hasTFS&&parseIt(row.tc7Imp)>0)evList.push({id:uid(),TipoContributo:"7",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc7Imp,Contributo:row.tc7Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2"});
       if(hasC1&&parseIt(row.tc6Cont)>0)evList.push({id:uid(),TipoContributo:"6",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc6Imp,Contributo:row.tc6Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2"});
       if(hasSol&&parseIt(row.tcSCont)>0)evList.push({id:uid(),TipoContributo:"6",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tcSImp,Contributo:row.tcSCont,AnnoMeseErogazione:row.annoMese,Aliquota:"2"});
-      const ld=String(lastDay(row.annoMese)).padStart(2,"0");
-      return{
-        id:uid(),CausaleVariazione:"5",
-        GiornoInizio:`${row.annoMese}-01`,GiornoFine:`${row.annoMese}-${ld}`,
-        TipoImpiego:inq.TipoImpiego,TipoServizio:inq.TipoServizio,Contratto:inq.Contratto,Qualifica:inq.Qualifica,
-        hasPartTime:inq.hasPartTime,TipoPartTime:inq.TipoPartTime,PercPartTime:inq.PercPartTime,
-        RegimeFineServizio:inq.RegimeFineServizio,CodiceCessazione:inq.CodiceCessazione||"",
-        ImpCPDEL:row.tc1Imp,ContribCPDEL:row.tc1Cont,
-        Contrib1Perc:hasC1?row.tc6Cont:"",
-        StipTabellare:inq.StipTabellare||"0,00",RetribAnzianita:inq.RetribAnzianita||"0,00",
-        regimeTFS:inq.regimeTFS||"TFS",
-        ImpTFS:hasTFS&&parseIt(row.tc7Imp)>0?row.tc7Imp:"",
-        ContribTFS:hasTFS&&parseIt(row.tc7Imp)>0?row.tc7Cont:"",
-        ImpCredito:row.tc9Imp,ContribCredito:row.tc9Cont,
-        enteVersante:evList,
-      };
     });
-    setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:[...d.periodi,...nuoviPeriodi]}:d));
-    setXDip(dipId);setXPer(nuoviPeriodi[0].id);setCumuloModal(null);
+    const periodo={
+      id:uid(),CausaleVariazione:"5",GiornoInizio:inq.dateFrom,GiornoFine:inq.dateTo,
+      TipoImpiego:inq.TipoImpiego,TipoServizio:inq.TipoServizio,Contratto:inq.Contratto,Qualifica:inq.Qualifica,
+      hasPartTime:inq.hasPartTime,TipoPartTime:inq.TipoPartTime,PercPartTime:inq.PercPartTime,
+      RegimeFineServizio:inq.RegimeFineServizio,CodiceCessazione:inq.CodiceCessazione||"",
+      ImpCPDEL:sumOf("tc1Imp"),ContribCPDEL:sumOf("tc1Cont"),
+      Contrib1Perc:hasC1?sumOf("tc6Cont"):"",
+      StipTabellare:inq.StipTabellare||"0,00",RetribAnzianita:inq.RetribAnzianita||"0,00",
+      regimeTFS:inq.regimeTFS||"TFS",
+      ImpTFS:hasTFS?sumOf("tc7Imp"):"",ContribTFS:hasTFS?sumOf("tc7Cont"):"",
+      ImpCredito:sumOf("tc9Imp"),ContribCredito:sumOf("tc9Cont"),
+      enteVersante:evList,
+    };
+    setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:[...d.periodi,periodo]}:d));
+    setXDip(dipId);setXPer(periodo.id);setCumuloModal(null);
   };
 
   /* ── mkPer ── */
@@ -671,7 +665,8 @@ export default function UniEmensBuilder() {
     if(!p.ImpCPDEL)return false;
     const{sumImpTC1,sumImpTC9,sumContribTC1}=evSums(p);
     const lc=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
-    return sumImpTC1>parseIt(p.ImpCPDEL)+0.005||sumContribTC1>lc+0.005||(p.ImpCredito&&sumImpTC9>parseIt(p.ImpCredito)+0.005);
+    const ic=parseIt(p.ImpCPDEL);
+    return Math.abs(sumImpTC1-ic)>0.005||Math.abs(sumContribTC1-lc)>0.005||(p.ImpCredito&&Math.abs(sumImpTC9-parseIt(p.ImpCredito))>0.005);
   };
 
   /* ════ RENDER periodo ════ */
@@ -681,8 +676,14 @@ export default function UniEmensBuilder() {
     const impCred=parseIt(p.ImpCredito);
     const limitContrib=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
     const over171=p.ImpCPDEL&&sumImpTC1>impCPDEL+0.005;
+    const under171=p.ImpCPDEL&&sumImpTC1<impCPDEL-0.005;
+    const st171=over171?"over":under171?"under":"ok";
     const over032=p.ImpCredito&&sumImpTC9>impCred+0.005;
+    const under032=p.ImpCredito&&sumImpTC9<impCred-0.005;
+    const st032=over032?"over":under032?"under":"ok";
     const over172=p.ImpCPDEL&&sumContribTC1>limitContrib+0.005;
+    const under172=p.ImpCPDEL&&sumContribTC1<limitContrib-0.005;
+    const st172=over172?"over":under172?"under":"ok";
     return(
     <div style={C.cBody}>
       <div style={C.sub}>
@@ -807,35 +808,35 @@ export default function UniEmensBuilder() {
               </thead>
               <tbody>
                 {/* 00171I */}
-                <tr style={C.sumRow(over171)}>
-                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over171?"#e08080":"#60a890"}}>00171I</span> Σ Imponibile TC1</td>
-                  <td style={{...C.tdR,color:over171?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC1))}</td>
+                <tr style={C.sumRow(st171)}>
+                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over171?"#e08080":under171?"#e0a020":"#60a890"}}>00171I</span> Σ Imponibile TC1</td>
+                  <td style={{...C.tdR,color:over171?"#f0a0a0":under171?"#f0c860":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC1))}</td>
                   <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ImpCPDEL)}</td>
-                  <td style={{...C.tdR,color:over171?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC1-impCPDEL)))}</td>
-                  <td style={C.td}>{over171?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
+                  <td style={{...C.tdR,color:over171?"#f05050":under171?"#e0a020":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC1-impCPDEL)))}</td>
+                  <td style={C.td}>{over171?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:under171?<span style={{color:"#e0a020",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                 </tr>
                 {/* 00032I */}
                 {p.ImpCredito&&(
-                  <tr style={C.sumRow(over032)}>
-                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032?"#e08080":"#60a890"}}>00032I</span> Σ Imponibile TC9</td>
-                    <td style={{...C.tdR,color:over032?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC9))}</td>
+                  <tr style={C.sumRow(st032)}>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032?"#e08080":under032?"#e0a020":"#60a890"}}>00032I</span> Σ Imponibile TC9</td>
+                    <td style={{...C.tdR,color:over032?"#f0a0a0":under032?"#f0c860":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC9))}</td>
                     <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ImpCredito)}</td>
-                    <td style={{...C.tdR,color:over032?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC9-impCred)))}</td>
-                    <td style={C.td}>{over032?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
+                    <td style={{...C.tdR,color:over032?"#f05050":under032?"#e0a020":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC9-impCred)))}</td>
+                    <td style={C.td}>{over032?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:under032?<span style={{color:"#e0a020",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
                 )}
                 {/* 00172I */}
-                <tr style={C.sumRow(over172)}>
-                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#e08080":"#60a890"}}>00172I</span> Σ Contributo TC1+TC5</td>
-                  <td style={{...C.tdR,color:over172?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
+                <tr style={C.sumRow(st172)}>
+                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#e08080":under172?"#e0a020":"#60a890"}}>00172I</span> Σ Contributo TC1+TC5</td>
+                  <td style={{...C.tdR,color:over172?"#f0a0a0":under172?"#f0c860":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
                   <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(String(limitContrib))} (CPDEL+1%)</td>
-                  <td style={{...C.tdR,color:over172?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
-                  <td style={C.td}>{over172?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
+                  <td style={{...C.tdR,color:over172?"#f05050":under172?"#e0a020":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
+                  <td style={C.td}>{over172?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:under172?<span style={{color:"#e0a020",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                 </tr>
               </tbody>
             </table>
             <div style={{fontSize:"9px",color:"#1a4060",padding:"3px 8px"}}>
-              Valori negativi = margine residuo. Valori positivi = eccesso da correggere prima del passaggio al sw INPS.
+              Valori negativi = importo non ancora coperto. Valori positivi = eccesso da correggere. ✓ OK = copertura esatta. ⚠ RESIDUO (arancio) = somma EV incompleta. ⚠ ECCESSO (rosso) = violazione INPS.
             </div>
           </div>
         )}
