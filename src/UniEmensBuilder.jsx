@@ -76,57 +76,6 @@ const EMPTY_INQ={dateFrom:"",dateTo:"",TipoImpiego:"1",TipoServizio:"4",
   StipTabellare:"0,00",RetribAnzianita:"0,00"};
 
 
-/* ════ VALIDAZIONE DATE PERIODO V1 (00024I / 00311I) ════ */
-function lastDayOf(y,m){return new Date(y,m,0).getDate();}
-function splitPeriods(from,to){
-  if(!from||!to||from>to)return[];
-  const[fy,fm,fd]=from.split("-").map(Number);
-  const[ty,tm,td]=to.split("-").map(Number);
-  // Costruisce lista di {y,m}
-  const months=[];let cy=fy,cm=fm;
-  while(cy<ty||(cy===ty&&cm<=tm)){
-    months.push({y:cy,m:cm});
-    cm++;if(cm>12){cm=1;cy++;}
-  }
-  // Raggruppa: ante 2012-10 → per anno; da 2012-10 → per mese
-  const groups=[];let i=0;
-  while(i<months.length){
-    const{y:ny,m:nm}=months[i];
-    const mono=(ny>2012)||(ny===2012&&nm>=10);
-    if(mono){groups.push([months[i]]);i++;}
-    else{
-      const yr=ny;const g=[];
-      while(i<months.length){
-        const{y:gy,m:gm}=months[i];
-        if(gy!==yr||(gy===2012&&gm>=10))break;
-        g.push(months[i]);i++;
-      }
-      groups.push(g);
-    }
-  }
-  return groups.map((g,gi)=>{
-    const f=g[0],l=g[g.length-1];
-    const pFrom=gi===0?from:`${f.y}-${String(f.m).padStart(2,"0")}-01`;
-    const pTo=gi===groups.length-1?to:`${l.y}-${String(l.m).padStart(2,"0")}-${String(lastDayOf(l.y,l.m)).padStart(2,"0")}`;
-    return{from:pFrom,to:pTo};
-  });
-}
-function checkDateErrors(from,to){
-  if(!from||!to||from.length<10||to.length<10)return[];
-  const[fy]=from.split("-").map(Number);
-  const[ty,tm]=to.split("-").map(Number);
-  const errs=[];
-  if(fy!==ty)errs.push("00024I");
-  if((ty>2012||(ty===2012&&tm>=10))&&errs.indexOf("00024I")===-1){
-    const[,fm]=from.split("-").map(Number);
-    if(fm!==tm)errs.push("00311I");
-  }
-  // Se 00024I c'è già, 00311I è implicito ma non va duplicato
-  if(errs.includes("00024I")&&(ty>2012||(ty===2012&&tm>=10)))
-    !errs.includes("00311I")&&errs.push("00311I");
-  return errs;
-}
-
 /* ════════════════════════════════════════════════════════════
    XML PARSER — importa flussi variazione e standard DMA2
 ════════════════════════════════════════════════════════════ */
@@ -284,10 +233,10 @@ function buildXML(m, a, dips) {
   x += `      <ListaPosPA TipoListaPosPA="1">\n          <PRGAZIENDA>${esc(a.PRGAZIENDA || "00000")}</PRGAZIENDA>\n          <CFRappresentanteFirmatario>${esc(a.CFRappresentanteFirmatario)}</CFRappresentanteFirmatario>\n          <ISTAT>${esc(a.ISTAT)}</ISTAT>\n          <FormaGiuridica>${esc(a.FormaGiuridica)}</FormaGiuridica>\n`;
   x += `          <PosPA>\n`;
   for (const d of dips) {
+    x += `              <D0_DenunciaIndividuale>\n`;
+    x += `                  <CFLavoratore>${esc(d.CFLavoratore)}</CFLavoratore>\n                  <Cognome>${esc(d.Cognome)}</Cognome>\n                  <Nome>${esc(d.Nome)}</Nome>\n`;
+    x += `                  <DatiSedeLavoro>\n                      <CodiceComune>${esc(d.CodiceComune)}</CodiceComune>\n                      <CAP>${esc(d.CAP)}</CAP>\n                  </DatiSedeLavoro>\n`;
     for (const p of d.periodi) {
-      x += `              <D0_DenunciaIndividuale>\n`;
-      x += `                  <CFLavoratore>${esc(d.CFLavoratore)}</CFLavoratore>\n                  <Cognome>${esc(d.Cognome)}</Cognome>\n                  <Nome>${esc(d.Nome)}</Nome>\n`;
-      x += `                  <DatiSedeLavoro>\n                      <CodiceComune>${esc(d.CodiceComune)}</CodiceComune>\n                      <CAP>${esc(d.CAP)}</CAP>\n                  </DatiSedeLavoro>\n`;
       x += `                  <V1_PeriodoPrecedente CausaleVariazione="${esc(p.CausaleVariazione)}">\n`;
       x += `                      <GiornoInizio>${esc(p.GiornoInizio)}</GiornoInizio>\n                      <GiornoFine>${esc(p.GiornoFine)}</GiornoFine>\n`;
       x += `                      <InquadramentoLavPA>\n                          <TipoImpiego>${esc(p.TipoImpiego)}</TipoImpiego>\n                          <TipoServizio>${esc(p.TipoServizio)}</TipoServizio>\n                          <Contratto>${esc(p.Contratto)}</Contratto>\n                          <Qualifica>${esc(p.Qualifica)}</Qualifica>\n`;
@@ -311,8 +260,9 @@ function buildXML(m, a, dips) {
       for (const ev of p.enteVersante) {
         x += `                      <EnteVersante>\n                          <TipoContributo>${esc(ev.TipoContributo)}</TipoContributo>\n                          <CFAzienda>${esc(ev.CFAzienda)}</CFAzienda>\n                          <PRGAZIENDA>${esc(ev.PRGAZIENDA || "00000")}</PRGAZIENDA>\n                          <Imponibile>${toIt(ev.Imponibile)}</Imponibile>\n                          <Contributo>${toIt(ev.Contributo)}</Contributo>\n                          <AnnoMeseErogazione>${esc(ev.AnnoMeseErogazione)}</AnnoMeseErogazione>\n                          <Aliquota>${esc(ev.Aliquota || "2")}</Aliquota>\n                      </EnteVersante>\n`;
       }
-      x += `                  </V1_PeriodoPrecedente>\n              </D0_DenunciaIndividuale>\n`;
+      x += `                  </V1_PeriodoPrecedente>\n`;
     }
+    x += `              </D0_DenunciaIndividuale>\n`;
   }
   x += `          </PosPA>\n      </ListaPosPA>\n   </Azienda>\n</DenunceMensili>`;
   return x;
@@ -489,7 +439,7 @@ const C = {
   thR: { background: "#180606", padding: "3px 6px", textAlign: "right", color: "#804040", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #162840", whiteSpace: "nowrap" },
   td: { padding: "3px 4px", borderBottom: "1px solid #0d1c2c", verticalAlign: "top" },
   tdR: { padding: "3px 4px", borderBottom: "1px solid #0d1c2c", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" },
-  sumRow: (s) => ({ background: s==="over"?"#2a0808":s==="under"?"#1a1200":"#061a0e", fontWeight:"700" }),
+  sumRow: (over) => ({ background: over ? "#2a0808" : "#061a0e", fontWeight: "700" }),
   bdg: (c) => ({ background: c+"22", color: c, padding: "1px 6px", borderRadius: "3px", fontSize: "10px", fontWeight: "700", fontFamily: "monospace", whiteSpace: "nowrap" }),
   mono: { fontFamily: "monospace", fontSize: "11px" },
   empty: { textAlign: "center", color: "#1a3050", padding: "30px", fontSize: "12px" },
@@ -716,8 +666,7 @@ export default function UniEmensBuilder() {
     if(!p.ImpCPDEL)return false;
     const{sumImpTC1,sumImpTC9,sumContribTC1}=evSums(p);
     const lc=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
-    const ic=parseIt(p.ImpCPDEL);
-    return Math.abs(sumImpTC1-ic)>0.005||Math.abs(sumContribTC1-lc)>0.005||(p.ImpCredito&&Math.abs(sumImpTC9-parseIt(p.ImpCredito))>0.005);
+    return sumImpTC1>parseIt(p.ImpCPDEL)+0.005||sumContribTC1>lc+0.005||(p.ImpCredito&&sumImpTC9>parseIt(p.ImpCredito)+0.005);
   };
 
   /* ════ RENDER periodo ════ */
@@ -727,16 +676,8 @@ export default function UniEmensBuilder() {
     const impCred=parseIt(p.ImpCredito);
     const limitContrib=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
     const over171=p.ImpCPDEL&&sumImpTC1>impCPDEL+0.005;
-    const under171=p.ImpCPDEL&&sumImpTC1<impCPDEL-0.005;
-    const st171=over171?"over":under171?"under":"ok";
     const over032=p.ImpCredito&&sumImpTC9>impCred+0.005;
-    const under032=p.ImpCredito&&sumImpTC9<impCred-0.005;
-    const st032=over032?"over":under032?"under":"ok";
     const over172=p.ImpCPDEL&&sumContribTC1>limitContrib+0.005;
-    const under172=p.ImpCPDEL&&sumContribTC1<limitContrib-0.005;
-    const st172=over172?"over":under172?"under":"ok";
-    const dateErrs=checkDateErrors(p.GiornoInizio,p.GiornoFine);
-    const dateSplit=dateErrs.length?splitPeriods(p.GiornoInizio,p.GiornoFine):[];
     return(
     <div style={C.cBody}>
       <div style={C.sub}>
@@ -747,44 +688,6 @@ export default function UniEmensBuilder() {
           <F label="Giorno fine" value={p.GiornoFine} onChange={v=>updPer(dip.id,p.id,"GiornoFine",v)} ph="YYYY-MM-DD" w="130px"/>
           <F label="Cod. cessazione" value={p.CodiceCessazione} onChange={v=>updPer(dip.id,p.id,"CodiceCessazione",v)} ph="es. 3" w="108px"/>
         </div>
-        {dateErrs.length>0&&(
-          <div style={{marginTop:"8px",background:"#1a0a00",border:"1px solid #8a3a00",borderRadius:"4px",padding:"8px 10px",fontSize:"11px"}}>
-            <div style={{fontWeight:"700",color:"#f08030",marginBottom:"5px"}}>
-              ⚠ Errore date periodo — {dateErrs.join(" + ")}
-            </div>
-            <div style={{color:"#c07040",marginBottom:"6px",lineHeight:"1.5"}}>
-              {dateErrs.includes("00024I")&&<span>GiornoInizio e GiornoFine appartengono ad anni diversi. </span>}
-              {dateErrs.includes("00311I")&&<span>Da ottobre 2012 ogni periodo deve essere confinato allo stesso mese. </span>}
-              Il flusso verrà rifiutato da INPS.
-            </div>
-            {dateSplit.length>1&&(<>
-              <div style={{color:"#e09050",fontWeight:"700",marginBottom:"4px",fontSize:"10px"}}>
-                ↳ Suddividere in {dateSplit.length} periodi V1 distinti (causale {p.CausaleVariazione}):
-              </div>
-              <table style={{borderCollapse:"collapse",fontSize:"10px",width:"auto"}}>
-                <thead>
-                  <tr>
-                    <th style={{...C.th,padding:"2px 8px"}}>#</th>
-                    <th style={{...C.th,padding:"2px 8px"}}>GiornoInizio</th>
-                    <th style={{...C.th,padding:"2px 8px"}}>GiornoFine</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dateSplit.map((s,i)=>(
-                    <tr key={i} style={{background:i%2?"#0d1a08":"#071208"}}>
-                      <td style={{...C.td,padding:"2px 8px",color:"#806040",textAlign:"center"}}>{i+1}</td>
-                      <td style={{...C.td,padding:"2px 8px",color:"#80c870",fontFamily:"monospace"}}>{s.from}</td>
-                      <td style={{...C.td,padding:"2px 8px",color:"#80c870",fontFamily:"monospace"}}>{s.to}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div style={{fontSize:"9px",color:"#604020",marginTop:"4px"}}>
-                Importi EnteVersante: ripartire proporzionalmente per mese tramite "∑ Cumulo mensilità".
-              </div>
-            </>)}
-          </div>
-        )}
       </div>
 
       <div style={C.sub}>
@@ -899,35 +802,35 @@ export default function UniEmensBuilder() {
               </thead>
               <tbody>
                 {/* 00171I */}
-                <tr style={C.sumRow(st171)}>
-                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over171?"#e08080":under171?"#e0a020":"#60a890"}}>00171I</span> Σ Imponibile TC1</td>
-                  <td style={{...C.tdR,color:over171?"#f0a0a0":under171?"#f0c860":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC1))}</td>
+                <tr style={C.sumRow(over171)}>
+                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over171?"#e08080":"#60a890"}}>00171I</span> Σ Imponibile TC1</td>
+                  <td style={{...C.tdR,color:over171?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC1))}</td>
                   <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ImpCPDEL)}</td>
-                  <td style={{...C.tdR,color:over171?"#f05050":under171?"#e0a020":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC1-impCPDEL)))}</td>
-                  <td style={C.td}>{over171?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:under171?<span style={{color:"#e0a020",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
+                  <td style={{...C.tdR,color:over171?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC1-impCPDEL)))}</td>
+                  <td style={C.td}>{over171?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                 </tr>
                 {/* 00032I */}
                 {p.ImpCredito&&(
-                  <tr style={C.sumRow(st032)}>
-                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032?"#e08080":under032?"#e0a020":"#60a890"}}>00032I</span> Σ Imponibile TC9</td>
-                    <td style={{...C.tdR,color:over032?"#f0a0a0":under032?"#f0c860":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC9))}</td>
+                  <tr style={C.sumRow(over032)}>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032?"#e08080":"#60a890"}}>00032I</span> Σ Imponibile TC9</td>
+                    <td style={{...C.tdR,color:over032?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC9))}</td>
                     <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ImpCredito)}</td>
-                    <td style={{...C.tdR,color:over032?"#f05050":under032?"#e0a020":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC9-impCred)))}</td>
-                    <td style={C.td}>{over032?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:under032?<span style={{color:"#e0a020",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
+                    <td style={{...C.tdR,color:over032?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC9-impCred)))}</td>
+                    <td style={C.td}>{over032?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
                 )}
                 {/* 00172I */}
-                <tr style={C.sumRow(st172)}>
-                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#e08080":under172?"#e0a020":"#60a890"}}>00172I</span> Σ Contributo TC1+TC5</td>
-                  <td style={{...C.tdR,color:over172?"#f0a0a0":under172?"#f0c860":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
+                <tr style={C.sumRow(over172)}>
+                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#e08080":"#60a890"}}>00172I</span> Σ Contributo TC1+TC5</td>
+                  <td style={{...C.tdR,color:over172?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
                   <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(String(limitContrib))} (CPDEL+1%)</td>
-                  <td style={{...C.tdR,color:over172?"#f05050":under172?"#e0a020":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
-                  <td style={C.td}>{over172?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:under172?<span style={{color:"#e0a020",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
+                  <td style={{...C.tdR,color:over172?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
+                  <td style={C.td}>{over172?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                 </tr>
               </tbody>
             </table>
             <div style={{fontSize:"9px",color:"#1a4060",padding:"3px 8px"}}>
-              Valori negativi = importo non ancora coperto. Valori positivi = eccesso da correggere. ✓ OK = copertura esatta. ⚠ RESIDUO (arancio) = somma EV incompleta. ⚠ ECCESSO (rosso) = violazione INPS.
+              Valori negativi = margine residuo. Valori positivi = eccesso da correggere prima del passaggio al sw INPS.
             </div>
           </div>
         )}
