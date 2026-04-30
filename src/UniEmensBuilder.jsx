@@ -175,6 +175,8 @@ function parsePeriodEl(el, tag, cfAz, prg) {
   const inq = parseInquadramento(el);
   const gest = parseGestioni(el);
   const causale = tag === "V1_PeriodoPrecedente" ? (el.getAttribute("CausaleVariazione") || "5") : "5";
+  /* RetribTeoricaTabellareTFR è figlio diretto di V1/E0 (non di GestPrevidenziale) */
+  const rttTFR = getTxt(el,"RetribTeoricaTabellareTFR") || gest.RetribTeoricaTabellareTFR || "0,00";
   const evEls = el.querySelectorAll("EnteVersante");
   const evList = evEls.length > 0
     ? pairEVRows(Array.from(evEls).map(ev => parseEVEl(ev, cfAz, prg)))
@@ -184,6 +186,7 @@ function parsePeriodEl(el, tag, cfAz, prg) {
     GiornoInizio: getTxt(el,"GiornoInizio"), GiornoFine: getTxt(el,"GiornoFine"),
     CodiceCessazione: getTxt(el,"CodiceCessazione"),
     ...inq, ...gest,
+    RetribTeoricaTabellareTFR: rttTFR,
     enteVersante: evList,
   };
 }
@@ -273,7 +276,9 @@ function buildXML(m, a, dips) {
           const T = p.regimeTFS === "TFR" ? "TFR" : "TFS";
           x += `                          <GestPrevidenziale>\n                              <CodGestione>6</CodGestione>\n                              <Imponibile${T}>${toIt(p.ImpTFS)}</Imponibile${T}>\n                              <Contributo${T}>${toIt(p.ContribTFS)}</Contributo${T}>\n`;
           if (p.regimeTFS === "TFR") {
-            x += `                              <RetribTeoricaTabellareTFR>${toIt(p.RetribTeoricaTabellareTFR)}</RetribTeoricaTabellareTFR>\n`;
+            /* Sequenza XSD DMA2 GestPrevidenziale TFR:
+               ImponibileTFR → ContributoTFR → [ImponibileTFRUlterioriElem] → [RetribValutabileTFR]
+               RetribTeoricaTabellareTFR è figlio di V1_PeriodoPrecedente, NON di GestPrevidenziale */
             x += `                              <ImponibileTFRUlterioriElem>${toIt(p.ImponibileTFRUlterioriElem||"0,00")}</ImponibileTFRUlterioriElem>\n`;
             x += `                              <RetribValutabileTFR>${toIt(p.RetribValutabileTFR)}</RetribValutabileTFR>\n`;
           }
@@ -283,6 +288,11 @@ function buildXML(m, a, dips) {
           x += `                          <GestCredito>\n                              <CodGestione>9</CodGestione>\n                              <Imponibile>${toIt(p.ImpCredito)}</Imponibile>\n                              <Contributo>${toIt(p.ContribCredito)}</Contributo>\n                          </GestCredito>\n`;
         }
         x += `                      </Gestioni>\n`;
+        /* RetribTeoricaTabellareTFR: figlio diretto di V1_PeriodoPrecedente (contesto errori 00116I/00383I)
+           Posizione schema: dopo </Gestioni>, prima di CodiceCessazione e EnteVersante */
+        if (p.regimeTFS === "TFR" && p.ImpTFS) {
+          x += `                      <RetribTeoricaTabellareTFR>${toIt(p.RetribTeoricaTabellareTFR)}</RetribTeoricaTabellareTFR>\n`;
+        }
         if (p.CodiceCessazione) x += `                      <CodiceCessazione>${esc(p.CodiceCessazione)}</CodiceCessazione>\n`;
         for (const ev of p.enteVersante) {
           if (!ev.AnnoMeseErogazione) continue;
@@ -1402,8 +1412,8 @@ export default function UniEmensBuilder() {
 
       <div style={C.hdr}>
         <div>
-          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6</div>
-          <div style={C.hdrS}>TFR fields · Causale 6 fix · Copia coppia EV · Tripla TC1+TC9+TC7 · TC8 TFR · Fix 00124I · dedup · congruità real-time · PDF · Import XML · Cumulo</div>
+          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.1</div>
+          <div style={C.hdrS}>Fix XSD: RetribTeoricaTabellareTFR → livello V1 · TFR fields · Causale 6 · Copia EV · TC1+TC9+TC7 · TC8 TFR</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
           <span style={{fontSize:"11px",color:"#94A3B8",fontVariantNumeric:"tabular-nums"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
