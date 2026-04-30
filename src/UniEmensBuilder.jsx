@@ -276,11 +276,11 @@ function buildXML(m, a, dips) {
           const T = p.regimeTFS === "TFR" ? "TFR" : "TFS";
           x += `                          <GestPrevidenziale>\n                              <CodGestione>6</CodGestione>\n                              <Imponibile${T}>${toIt(p.ImpTFS)}</Imponibile${T}>\n                              <Contributo${T}>${toIt(p.ContribTFS)}</Contributo${T}>\n`;
           if (p.regimeTFS === "TFR") {
-            /* Sequenza XSD DMA2 GestPrevidenziale TFR:
-               ImponibileTFR → ContributoTFR → [ImponibileTFRUlterioriElem] → [RetribValutabileTFR]
-               RetribTeoricaTabellareTFR è figlio di V1_PeriodoPrecedente, NON di GestPrevidenziale */
+            /* XSD DMA2 GestPrevidenziale TFR — sequenza valida:
+               ImponibileTFR → ContributoTFR → [ImponibileTFRUlterioriElem] → [ContributoTFRUlterioriElem] → ...
+               RetribTeoricaTabellareTFR e RetribValutabileTFR NON sono figli di GestPrevidenziale:
+               appartengono a livello V1_PeriodoPrecedente (confermato da errori XSD schema validator) */
             x += `                              <ImponibileTFRUlterioriElem>${toIt(p.ImponibileTFRUlterioriElem||"0,00")}</ImponibileTFRUlterioriElem>\n`;
-            x += `                              <RetribValutabileTFR>${toIt(p.RetribValutabileTFR)}</RetribValutabileTFR>\n`;
           }
           x += `                          </GestPrevidenziale>\n`;
         }
@@ -288,10 +288,11 @@ function buildXML(m, a, dips) {
           x += `                          <GestCredito>\n                              <CodGestione>9</CodGestione>\n                              <Imponibile>${toIt(p.ImpCredito)}</Imponibile>\n                              <Contributo>${toIt(p.ContribCredito)}</Contributo>\n                          </GestCredito>\n`;
         }
         x += `                      </Gestioni>\n`;
-        /* RetribTeoricaTabellareTFR: figlio diretto di V1_PeriodoPrecedente (contesto errori 00116I/00383I)
-           Posizione schema: dopo </Gestioni>, prima di CodiceCessazione e EnteVersante */
+        /* RetribTeoricaTabellareTFR e RetribValutabileTFR: figli diretti di V1_PeriodoPrecedente
+           Posizione: dopo </Gestioni>, prima di CodiceCessazione ed EnteVersante */
         if (p.regimeTFS === "TFR" && p.ImpTFS) {
           x += `                      <RetribTeoricaTabellareTFR>${toIt(p.RetribTeoricaTabellareTFR)}</RetribTeoricaTabellareTFR>\n`;
+          x += `                      <RetribValutabileTFR>${toIt(p.RetribValutabileTFR)}</RetribValutabileTFR>\n`;
         }
         if (p.CodiceCessazione) x += `                      <CodiceCessazione>${esc(p.CodiceCessazione)}</CodiceCessazione>\n`;
         for (const ev of p.enteVersante) {
@@ -1412,8 +1413,8 @@ export default function UniEmensBuilder() {
 
       <div style={C.hdr}>
         <div>
-          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.1</div>
-          <div style={C.hdrS}>Fix XSD: RetribTeoricaTabellareTFR → livello V1 · TFR fields · Causale 6 · Copia EV · TC1+TC9+TC7 · TC8 TFR</div>
+          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.2</div>
+          <div style={C.hdrS}>Fix XSD: RetribValutabileTFR + RetribTeoricaTabellareTFR → livello V1 · GestPrevidenziale TFR solo ImponibileTFR+ContributoTFR+UlterioriElem</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
           <span style={{fontSize:"11px",color:"#94A3B8",fontVariantNumeric:"tabular-nums"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
