@@ -425,20 +425,20 @@ function generatePDF(m, a, dips) {
 ═══════════════════════════════════════════ */
 const C = {
   /* ── Shell ── */
-  app:   { fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", fontSize: "13px", background: "#0C1520", color: "#C2D8EC", minHeight: "100vh", display: "flex", flexDirection: "column" },
+  app:   { fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", fontSize: "14px", background: "#111C28", color: "#DCE8F2", minHeight: "100vh", display: "flex", flexDirection: "column" },
 
   /* ── Header ── */
-  hdr:   { background: "#101C2C", borderBottom: "2px solid #00AEEF33", padding: "11px 18px", display: "flex", alignItems: "center", gap: "12px" },
+  hdr:   { background: "#142232", borderBottom: "2px solid #00AEEF33", padding: "11px 18px", display: "flex", alignItems: "center", gap: "12px" },
   hdrT:  { fontSize: "15px", fontWeight: "700", color: "#00AEEF", letterSpacing: "-0.01em" },
   hdrS:  { fontSize: "10px", color: "#3A5870", marginTop: "3px", letterSpacing: "0.02em" },
 
   /* ── Tabs ── */
-  tabs:  { display: "flex", background: "#0C1520", borderBottom: "1px solid #17304A" },
-  tab:   (a) => ({ padding: "9px 20px", cursor: "pointer", fontSize: "12px", fontWeight: "600", border: "none", background: "transparent", color: a ? "#00AEEF" : "#3A5870", borderBottom: a ? "2px solid #00AEEF" : "2px solid transparent", letterSpacing: "0.01em", transition: "color 150ms" }),
+  tabs:  { display: "flex", background: "#111C28", borderBottom: "1px solid #17304A" },
+  tab:   (a) => ({ padding: "9px 20px", cursor: "pointer", fontSize: "12px", fontWeight: "600", border: "none", background: "transparent", color: a ? "#42C8F0" : "#8DA4B8", borderBottom: a ? "2px solid #42C8F0" : "2px solid transparent", letterSpacing: "0.01em", transition: "color 150ms" }),
 
   /* ── Body / Sections ── */
-  body:  { flex: 1, overflowY: "auto", padding: "16px 18px" },
-  sec:   { background: "#101C2C", border: "1px solid #1A3450", borderRadius: "8px", padding: "14px 16px", marginBottom: "14px" },
+  body:  { flex: 1, overflowY: "auto", padding: "18px 20px" },
+  sec:   { background: "#142232", border: "1px solid #1A3450", borderRadius: "8px", padding: "14px 16px", marginBottom: "14px" },
   sT:    { fontSize: "10px", fontWeight: "700", color: "#00AEEF", textTransform: "uppercase", letterSpacing: "1.2px", marginBottom: "12px", paddingBottom: "7px", borderBottom: "1px solid #17304A" },
   row:   { display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "9px" },
 
@@ -446,10 +446,10 @@ const C = {
   lbl:   { fontSize: "10px", color: "#4A6E8C", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: "4px", display: "block", fontWeight: "600" },
 
   /* ── Inputs ── */
-  inp:   { background: "#070F1C", border: "1px solid #1C3A56", borderRadius: "4px", color: "#C2D8EC", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
+  inp:   { background: "#070F1C", border: "1px solid #1C3A56", borderRadius: "4px", color: "#DCE8F2", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
   inpG:  { background: "#04130A", border: "1px solid #0E4228", borderRadius: "4px", color: "#7EE8A4", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
   inpR:  { background: "#160606", border: "1px solid #581818", borderRadius: "4px", color: "#FCA5A5", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
-  sel:   { background: "#070F1C", border: "1px solid #1C3A56", borderRadius: "4px", color: "#C2D8EC", padding: "5px 8px", fontSize: "11px", outline: "none", width: "100%", boxSizing: "border-box" },
+  sel:   { background: "#070F1C", border: "1px solid #1C3A56", borderRadius: "4px", color: "#DCE8F2", padding: "5px 8px", fontSize: "11px", outline: "none", width: "100%", boxSizing: "border-box" },
 
   /* ── Buttons
        p = primary (ocean)   s = success (emerald)  x = danger (red)
@@ -465,8 +465,8 @@ const C = {
 
   /* ── Cards ── */
   card:  { background: "#0E1B2A", border: "1px solid #1A3450", borderRadius: "6px", marginBottom: "8px", overflow: "hidden" },
-  cHdr:  { padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#0B1622" },
-  cBody: { padding: "13px 14px" },
+  cHdr:  { padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#1B2A39" },
+  cBody: { padding: "15px 16px" },
 
   /* ── Sub-sections ── */
   sub:   { background: "#070F1C", border: "1px solid #172E46", borderRadius: "5px", padding: "10px 12px", marginBottom: "10px" },
@@ -475,15 +475,15 @@ const C = {
   /* ── Tables ── */
   th:    { background: "#050D18", padding: "4px 7px", textAlign: "left", color: "#2D5270", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #172E46", whiteSpace: "nowrap" },
   thR:   { background: "#150506", padding: "4px 7px", textAlign: "right", color: "#7A4040", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #172E46", whiteSpace: "nowrap" },
-  td:    { padding: "4px 5px", borderBottom: "1px solid #0D1C2C", verticalAlign: "top" },
-  tdR:   { padding: "4px 5px", borderBottom: "1px solid #0D1C2C", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" },
+  td:    { padding: "6px 6px", borderBottom: "1px solid #132638", verticalAlign: "top" },
+  tdR:   { padding: "6px 6px", borderBottom: "1px solid #132638", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" },
   sumRow:(s) => ({ background: s==="over"?"#280A0A":s==="under"?"#191300":"#051A0C", fontWeight: "700" }),
 
   /* ── Badges — pill shape per design system ── */
   bdg:   (c) => ({ background: c+"28", color: c, padding: "2px 9px", borderRadius: "9999px", fontSize: "10px", fontWeight: "700", fontFamily: "monospace", whiteSpace: "nowrap" }),
 
   /* ── Misc ── */
-  mono:  { fontFamily: "monospace", fontSize: "11px" },
+  mono:  { fontFamily: "Inter, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize: "12px", fontVariantNumeric: "tabular-nums" },
   empty: { textAlign: "center", color: "#1E3A58", padding: "32px", fontSize: "12px", fontStyle: "italic" },
 
   /* ── Alerts — e=error  o=ok  (default)=warning ── */
@@ -497,7 +497,7 @@ const C = {
 
   /* ── Modal ── */
   modal:    { position: "fixed", inset: 0, background: "#000000D0", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
-  modalBox: { background: "#101C2C", border: "1px solid #C04820", borderRadius: "10px", padding: "24px 28px", maxWidth: "400px", width: "90%", boxShadow: "0 16px 48px rgba(0,0,0,0.5)" },
+  modalBox: { background: "#142232", border: "1px solid #C04820", borderRadius: "10px", padding: "24px 28px", maxWidth: "400px", width: "90%", boxShadow: "0 16px 48px rgba(0,0,0,0.5)" },
 };
 
 /* ════ FIELD ════ */
@@ -753,7 +753,7 @@ export default function UniEmensBuilder() {
         </div>
         <div style={{...C.row,alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-            <input type="checkbox" checked={p.hasPartTime} onChange={e=>updPer(dip.id,p.id,"hasPartTime",e.target.checked)} style={{cursor:"pointer"}}/>
+            <input type="checkbox" checked={p.hasPartTime} onChange={e=>updPer(dip.id,p.id,"hasPartTime",e.target.checked)} style={{cursor:"pointer", transform:"translateY(0)"}}/>
             <span style={{fontSize:"11px",color:"#7AB8D4"}}>Part-time</span>
           </div>
           {p.hasPartTime&&<>
@@ -880,7 +880,7 @@ export default function UniEmensBuilder() {
                 </tr>
               </tbody>
             </table>
-            <div style={{fontSize:"9px",color:"#1E4A64",padding:"4px 9px"}}>
+            <div style={{fontSize:"11px",color:"#A9C0CF",padding:"7px 11px"}}>
               Valori negativi = margine residuo. Valori positivi = eccesso da correggere prima del passaggio al sw INPS.
             </div>
           </div>
@@ -986,7 +986,7 @@ export default function UniEmensBuilder() {
               </div>
               <div style={{...C.row,alignItems:"center"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                  <input type="checkbox" checked={inq.hasPartTime} onChange={e=>setInq("hasPartTime",e.target.checked)} style={{cursor:"pointer"}}/>
+                  <input type="checkbox" checked={inq.hasPartTime} onChange={e=>setInq("hasPartTime",e.target.checked)} style={{cursor:"pointer", transform:"translateY(0)"}}/>
                   <span style={{fontSize:"11px",color:"#7AB8D4"}}>Part-time</span>                </div>
                 {inq.hasPartTime&&<>
                   <F label="Tipo PT" value={inq.TipoPartTime} onChange={v=>setInq("TipoPartTime",v)} opts={TIPO_PT} w="176px"/>
@@ -1136,7 +1136,7 @@ export default function UniEmensBuilder() {
                   })}
                   {years.length>1&&(
                     <tr style={{background:"#060D18",fontWeight:"700",borderTop:"2px solid #17304A"}}>
-                      <td style={{...C.td,color:"#00AEEF",fontSize:"9px",position:"sticky",left:0,background:"#060D18"}}>TOTALE</td>
+                      <td style={{...C.td,color:"#00AEEF",fontSize:"13px",position:"sticky",left:0,background:"#15222F"}}>TOTALE</td>
                       <td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc1Imp")))}</td>
                       <td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc1Cont")))}</td>
                       <td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc9Imp")))}</td>
@@ -1155,7 +1155,7 @@ export default function UniEmensBuilder() {
             <div style={{display:"flex",gap:"8px",justifyContent:"flex-end",marginTop:"8px"}}>
               <button style={C.btn()} onClick={()=>setCumuloModal(null)}>Annulla</button>
               <button style={C.btn()} onClick={()=>setCumuloModal(p=>({...p,step:2}))}>← Rivedi totali</button>
-              <button style={{...C.btn("s"),padding:"5px 16px",fontSize:"12px"}} onClick={confirmCumulo}>✓ Conferma e aggiungi V1</button>
+              <button style={{...C.btn("s"),padding:"5px 16px",fontSize:"13px"}} onClick={confirmCumulo}>✓ Conferma e aggiungi V1</button>
             </div>
           </>
         );
@@ -1238,7 +1238,7 @@ export default function UniEmensBuilder() {
                           return{...p,selected:s};
                         })}>
                         <td style={{...C.td,textAlign:"center"}}>
-                          <input type="checkbox" readOnly checked={sel} style={{cursor:"pointer"}}/>
+                          <input type="checkbox" readOnly checked={sel} style={{cursor:"pointer", transform:"translateY(0)"}}/>
                         </td>
                         <td style={{...C.td,fontFamily:"monospace",fontSize:"11px",color:sel?"#86EFAC":"#3A7060"}}>{w.CFLavoratore||"—"}</td>
                         <td style={{...C.td,color:sel?"#A7F3D0":"#4A8A70"}}>{w.Cognome||"—"}</td>
@@ -1284,13 +1284,13 @@ export default function UniEmensBuilder() {
         <div style={C.modal}>
           <div style={C.modalBox}>
             <div style={{fontSize:"15px",fontWeight:"700",color:"#FCA5A5",marginBottom:"10px",letterSpacing:"-0.01em"}}>Nuova Lavorazione</div>
-            <div style={{fontSize:"12px",color:"#C8B090",marginBottom:"18px",lineHeight:"1.65"}}>
+            <div style={{fontSize:"13px",color:"#C8B090",marginBottom:"18px",lineHeight:"1.65"}}>
               Tutti i dati correnti (intestazione, dipendenti, periodi V1, EnteVersante) verranno cancellati.<br/>
               L'operazione non è reversibile.
             </div>
             <div style={{display:"flex",gap:"10px",justifyContent:"flex-end"}}>
               <button style={C.btn()} onClick={()=>setShowReset(false)}>Annulla</button>
-              <button style={{...C.btn("x"),padding:"6px 18px",fontSize:"12px"}} onClick={doReset}>Conferma reset</button>
+              <button style={{...C.btn("x"),padding:"6px 18px",fontSize:"13px"}} onClick={doReset}>Conferma reset</button>
             </div>
           </div>
         </div>
@@ -1352,14 +1352,14 @@ export default function UniEmensBuilder() {
 
         {tab===1&&<>
           <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"10px"}}>
-            <button style={{...C.btn("p"),padding:"6px 16px",fontSize:"12px"}} onClick={addDip}>+ Aggiungi dipendente</button>
+            <button style={{...C.btn("p"),padding:"6px 16px",fontSize:"13px"}} onClick={addDip}>+ Aggiungi dipendente</button>
           </div>
           {dips.length===0&&<div style={C.empty}>Nessun dipendente.</div>}
           {dips.map(dip=>(
             <div key={dip.id} style={C.card}>
               <div style={C.cHdr} onClick={()=>{setXDip(xDip===dip.id?null:dip.id);setXPer(null);}}>
                 <div style={{display:"flex",gap:"10px",alignItems:"center"}}>
-                  <span style={{...C.mono,color:"#00AEEF",fontWeight:"700",fontSize:"12px"}}>{dip.CFLavoratore||"— CF —"}</span>
+                  <span style={{...C.mono,color:"#00AEEF",fontWeight:"700",fontSize:"13px"}}>{dip.CFLavoratore||"— CF —"}</span>
                   <span style={{color:"#7AB8D4"}}>{dip.Cognome||"Cognome"} {dip.Nome||"Nome"}</span>
                   <span style={{...C.bdg("#10B981"),fontSize:"9px"}}>{dip.periodi.length} V1</span>
                   {dip.periodi.some(p=>hasWarn(p))&&<span style={{...C.bdg("#EF4444"),fontSize:"9px"}}>⚠ CONGRUITÀ</span>}
