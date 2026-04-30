@@ -724,8 +724,11 @@ export default function UniEmensBuilder() {
     const impCred=parseIt(p.ImpCredito);
     const limitContrib=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
     const over171=p.ImpCPDEL&&sumImpTC1>impCPDEL+0.005;
+    const under171=p.ImpCPDEL&&sumImpTC1<impCPDEL-0.005;
     const over032=p.ImpCredito&&sumImpTC9>impCred+0.005;
+    const under032=p.ImpCredito&&sumImpTC9<impCred-0.005;
     const over172=p.ImpCPDEL&&sumContribTC1>limitContrib+0.005;
+    const under172=p.ImpCPDEL&&sumContribTC1<limitContrib-0.005;
     return(
     <div style={C.cBody}>
       <div style={C.sub}>
