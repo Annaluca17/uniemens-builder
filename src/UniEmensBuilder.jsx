@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 
 /* ═══ UTILITIES ═══ */
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -560,13 +560,12 @@ function buildC(T) { return {
   modalBox: { background:T.modalBg, border:`1px solid ${T.modalBorder}`, borderRadius:10, padding:"24px 28px", maxWidth:"400px", width:"90%", boxShadow:"0 16px 48px rgba(0,0,0,0.2)" },
 }; }
 
-/* placeholder — C viene costruito dentro il componente */
-let C = buildC(PALETTE.dark);
+/* C viene costruito dentro il componente con useMemo */
 /* ════ FIELD ════ */
-function F({ label, value, onChange, ph="", w="140px", full=false, opts=null, green=false, red=false, note="" }) {
+function F({ C, T, label, value, onChange, ph="", w="140px", full=false, opts=null, green=false, red=false, note="" }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", flex: full?"1 1 100%":`1 1 ${w}`, minWidth: full?"180px":w }}>
-      <label style={C.lbl}>{label}{note&&<span style={{color:"#34D399",marginLeft:"5px",fontWeight:"700",fontSize:"9px"}}>{note}</span>}</label>
+      <label style={C.lbl}>{label}{note&&<span style={{color:T.ok,marginLeft:"5px",fontWeight:"700",fontSize:"9px"}}>{note}</span>}</label>
       {opts
         ? <select style={C.sel} value={value} onChange={e=>onChange(e.target.value)}>{opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>
         : <input style={red?C.inpR:green?C.inpG:C.inp} value={value} onChange={e=>onChange(e.target.value)} placeholder={ph}/>}
@@ -593,7 +592,9 @@ export default function UniEmensBuilder() {
   const [tab, setTab] = useState(0);
   const [theme, setTheme] = useState("dark");
   const T = PALETTE[theme];
-  C = buildC(T);
+  const C = useMemo(() => buildC(T), [theme]); // eslint-disable-line
+  /* Fld = F con C e T pre-iniettati — evita prop drilling su ogni call site */
+  const Fld = (props) => <Fld C={C} T={T} {...props} />;
   const [m, setM] = useState(EMPTY_M);
   const [a, setA] = useState(EMPTY_A);
   const [dips, setDips] = useState([]);
@@ -800,21 +801,21 @@ export default function UniEmensBuilder() {
       <div style={C.sub}>
         <div style={C.subT}>Periodo e Causale</div>
         <div style={C.row}>
-          <F label="Causale variazione" value={p.CausaleVariazione} onChange={v=>updPer(dip.id,p.id,"CausaleVariazione",v)} opts={CAUSALE} w="230px"/>
-          <F label="Giorno inizio" value={p.GiornoInizio} onChange={v=>updPer(dip.id,p.id,"GiornoInizio",v)} ph="YYYY-MM-DD" w="130px"/>
-          <F label="Giorno fine" value={p.GiornoFine} onChange={v=>updPer(dip.id,p.id,"GiornoFine",v)} ph="YYYY-MM-DD" w="130px"/>
-          <F label="Cod. cessazione" value={p.CodiceCessazione} onChange={v=>updPer(dip.id,p.id,"CodiceCessazione",v)} ph="es. 3" w="108px"/>
+          <Fld label="Causale variazione" value={p.CausaleVariazione} onChange={v=>updPer(dip.id,p.id,"CausaleVariazione",v)} opts={CAUSALE} w="230px"/>
+          <Fld label="Giorno inizio" value={p.GiornoInizio} onChange={v=>updPer(dip.id,p.id,"GiornoInizio",v)} ph="YYYY-MM-DD" w="130px"/>
+          <Fld label="Giorno fine" value={p.GiornoFine} onChange={v=>updPer(dip.id,p.id,"GiornoFine",v)} ph="YYYY-MM-DD" w="130px"/>
+          <Fld label="Cod. cessazione" value={p.CodiceCessazione} onChange={v=>updPer(dip.id,p.id,"CodiceCessazione",v)} ph="es. 3" w="108px"/>
         </div>
       </div>
 
       <div style={C.sub}>
         <div style={C.subT}>InquadramentoLavPA</div>
         <div style={C.row}>
-          <F label="Tipo impiego" value={p.TipoImpiego} onChange={v=>updPer(dip.id,p.id,"TipoImpiego",v)} opts={TIPO_IMPIEGO} w="198px"/>
-          <F label="Tipo servizio" value={p.TipoServizio} onChange={v=>updPer(dip.id,p.id,"TipoServizio",v)} opts={TIPO_SERVIZIO} w="178px"/>
-          <F label="Contratto" value={p.Contratto} onChange={v=>updPer(dip.id,p.id,"Contratto",v)} ph="RALN" w="86px"/>
-          <F label="Qualifica" value={p.Qualifica} onChange={v=>updPer(dip.id,p.id,"Qualifica",v)} ph="042000" w="106px"/>
-          <F label="Regime fine servizio" value={p.RegimeFineServizio} onChange={v=>updPer(dip.id,p.id,"RegimeFineServizio",v)} opts={REGIME_FS} w="178px"/>
+          <Fld label="Tipo impiego" value={p.TipoImpiego} onChange={v=>updPer(dip.id,p.id,"TipoImpiego",v)} opts={TIPO_IMPIEGO} w="198px"/>
+          <Fld label="Tipo servizio" value={p.TipoServizio} onChange={v=>updPer(dip.id,p.id,"TipoServizio",v)} opts={TIPO_SERVIZIO} w="178px"/>
+          <Fld label="Contratto" value={p.Contratto} onChange={v=>updPer(dip.id,p.id,"Contratto",v)} ph="RALN" w="86px"/>
+          <Fld label="Qualifica" value={p.Qualifica} onChange={v=>updPer(dip.id,p.id,"Qualifica",v)} ph="042000" w="106px"/>
+          <Fld label="Regime fine servizio" value={p.RegimeFineServizio} onChange={v=>updPer(dip.id,p.id,"RegimeFineServizio",v)} opts={REGIME_FS} w="178px"/>
         </div>
         <div style={{...C.row,alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
@@ -822,8 +823,8 @@ export default function UniEmensBuilder() {
             <span style={{fontSize:"11px",color:T.monoText}}>Part-time</span>
           </div>
           {p.hasPartTime&&<>
-            <F label="Tipo PT" value={p.TipoPartTime} onChange={v=>updPer(dip.id,p.id,"TipoPartTime",v)} opts={TIPO_PT} w="178px"/>
-            <F label="% (es. 50000)" value={p.PercPartTime} onChange={v=>updPer(dip.id,p.id,"PercPartTime",v)} ph="50000" w="138px"/>
+            <Fld label="Tipo PT" value={p.TipoPartTime} onChange={v=>updPer(dip.id,p.id,"TipoPartTime",v)} opts={TIPO_PT} w="178px"/>
+            <Fld label="% (es. 50000)" value={p.PercPartTime} onChange={v=>updPer(dip.id,p.id,"PercPartTime",v)} ph="50000" w="138px"/>
           </>}
         </div>
       </div>
@@ -831,29 +832,29 @@ export default function UniEmensBuilder() {
       <div style={C.sub}>
         <div style={C.subT}>GestPensionistica — CPDEL (CodGestione 2)</div>
         <div style={C.row}>
-          <F label="Imponibile CPDEL" value={p.ImpCPDEL} onChange={v=>updPer(dip.id,p.id,"ImpCPDEL",v)} ph="0,00" w="136px"/>
-          <F label="Contributo CPDEL" value={p.ContribCPDEL} onChange={v=>updPer(dip.id,p.id,"ContribCPDEL",v)} ph="0,00" w="136px"/>
-          <F label="Contrib. 1%" value={p.Contrib1Perc} onChange={v=>updPer(dip.id,p.id,"Contrib1Perc",v)} ph="0,00" w="96px"/>
-          <F label="Stipendio tabellare" value={p.StipTabellare} onChange={v=>updPer(dip.id,p.id,"StipTabellare",v)} ph="0,00" w="136px"/>
-          <F label="Retrib. anzianità" value={p.RetribAnzianita} onChange={v=>updPer(dip.id,p.id,"RetribAnzianita",v)} ph="0,00" w="126px"/>
+          <Fld label="Imponibile CPDEL" value={p.ImpCPDEL} onChange={v=>updPer(dip.id,p.id,"ImpCPDEL",v)} ph="0,00" w="136px"/>
+          <Fld label="Contributo CPDEL" value={p.ContribCPDEL} onChange={v=>updPer(dip.id,p.id,"ContribCPDEL",v)} ph="0,00" w="136px"/>
+          <Fld label="Contrib. 1%" value={p.Contrib1Perc} onChange={v=>updPer(dip.id,p.id,"Contrib1Perc",v)} ph="0,00" w="96px"/>
+          <Fld label="Stipendio tabellare" value={p.StipTabellare} onChange={v=>updPer(dip.id,p.id,"StipTabellare",v)} ph="0,00" w="136px"/>
+          <Fld label="Retrib. anzianità" value={p.RetribAnzianita} onChange={v=>updPer(dip.id,p.id,"RetribAnzianita",v)} ph="0,00" w="126px"/>
         </div>
       </div>
 
       <div style={C.sub}>
         <div style={C.subT}>GestPrevidenziale — TFS / TFR (CodGestione 6)</div>
         <div style={C.row}>
-          <F label="Regime" value={p.regimeTFS} onChange={v=>updPer(dip.id,p.id,"regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="146px"/>
-          <F label={`Imponibile ${p.regimeTFS}`} value={p.ImpTFS} onChange={v=>updPer(dip.id,p.id,"ImpTFS",v)} ph="0,00" w="136px"/>
-          <F label={`Contributo ${p.regimeTFS}`} value={p.ContribTFS} onChange={v=>updPer(dip.id,p.id,"ContribTFS",v)} ph="0,00" w="136px"/>
+          <Fld label="Regime" value={p.regimeTFS} onChange={v=>updPer(dip.id,p.id,"regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="146px"/>
+          <Fld label={`Imponibile ${p.regimeTFS}`} value={p.ImpTFS} onChange={v=>updPer(dip.id,p.id,"ImpTFS",v)} ph="0,00" w="136px"/>
+          <Fld label={`Contributo ${p.regimeTFS}`} value={p.ContribTFS} onChange={v=>updPer(dip.id,p.id,"ContribTFS",v)} ph="0,00" w="136px"/>
         </div>
       </div>
 
       <div style={C.sub}>
         <div style={C.subT}>GestCredito — Fondo Credito (CodGestione 9)</div>
         <div style={C.row}>
-          <F label="Imponibile credito" value={p.ImpCredito} onChange={v=>updPer(dip.id,p.id,"ImpCredito",v)} ph="0,00" w="136px"
+          <Fld label="Imponibile credito" value={p.ImpCredito} onChange={v=>updPer(dip.id,p.id,"ImpCredito",v)} ph="0,00" w="136px"
             green={!!p.ImpCredito&&p.ImpCredito===p.ImpCPDEL} note={p.ImpCredito&&p.ImpCredito===p.ImpCPDEL?"↔ CPDEL":""}/>
-          <F label="Contributo credito" value={p.ContribCredito} onChange={v=>updPer(dip.id,p.id,"ContribCredito",v)} ph="0,00" w="136px"/>
+          <Fld label="Contributo credito" value={p.ContribCredito} onChange={v=>updPer(dip.id,p.id,"ContribCredito",v)} ph="0,00" w="136px"/>
         </div>
       </div>
 
@@ -960,11 +961,11 @@ export default function UniEmensBuilder() {
       <div style={C.sub}>
         <div style={C.subT}>Anagrafica Lavoratore (D0)</div>
         <div style={C.row}>
-          <F label="Codice Fiscale" value={dip.CFLavoratore} onChange={v=>updDip(dip.id,"CFLavoratore",v)} ph="XYZABC00X00X000X" w="176px"/>
-          <F label="Cognome" value={dip.Cognome} onChange={v=>updDip(dip.id,"Cognome",v)} w="146px"/>
-          <F label="Nome" value={dip.Nome} onChange={v=>updDip(dip.id,"Nome",v)} w="126px"/>
-          <F label="Codice Comune" value={dip.CodiceComune} onChange={v=>updDip(dip.id,"CodiceComune",v)} ph="F943" w="126px"/>
-          <F label="CAP" value={dip.CAP} onChange={v=>updDip(dip.id,"CAP",v)} ph="96017" w="70px"/>
+          <Fld label="Codice Fiscale" value={dip.CFLavoratore} onChange={v=>updDip(dip.id,"CFLavoratore",v)} ph="XYZABC00X00X000X" w="176px"/>
+          <Fld label="Cognome" value={dip.Cognome} onChange={v=>updDip(dip.id,"Cognome",v)} w="146px"/>
+          <Fld label="Nome" value={dip.Nome} onChange={v=>updDip(dip.id,"Nome",v)} w="126px"/>
+          <Fld label="Codice Comune" value={dip.CodiceComune} onChange={v=>updDip(dip.id,"CodiceComune",v)} ph="F943" w="126px"/>
+          <Fld label="CAP" value={dip.CAP} onChange={v=>updDip(dip.id,"CAP",v)} ph="96017" w="70px"/>
         </div>
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"7px"}}>
@@ -1028,9 +1029,9 @@ export default function UniEmensBuilder() {
             <div style={C.sub}>
               <div style={C.subT}>Periodo</div>
               <div style={C.row}>
-                <F label="Dal (GiornoInizio)" value={inq.dateFrom} onChange={v=>setInq("dateFrom",v)} ph="YYYY-MM-DD" w="148px"/>
-                <F label="Al (GiornoFine)" value={inq.dateTo} onChange={v=>setInq("dateTo",v)} ph="YYYY-MM-DD" w="148px"/>
-                <F label="Cod. cessazione" value={inq.CodiceCessazione} onChange={v=>setInq("CodiceCessazione",v)} ph="es. 3" w="108px"/>
+                <Fld label="Dal (GiornoInizio)" value={inq.dateFrom} onChange={v=>setInq("dateFrom",v)} ph="YYYY-MM-DD" w="148px"/>
+                <Fld label="Al (GiornoFine)" value={inq.dateTo} onChange={v=>setInq("dateTo",v)} ph="YYYY-MM-DD" w="148px"/>
+                <Fld label="Cod. cessazione" value={inq.CodiceCessazione} onChange={v=>setInq("CodiceCessazione",v)} ph="es. 3" w="108px"/>
               </div>
               {inq.dateFrom&&inq.dateTo&&inq.dateFrom<=inq.dateTo&&(()=>{
                 const ml=buildMonthList(inq.dateFrom,inq.dateTo);
@@ -1043,25 +1044,25 @@ export default function UniEmensBuilder() {
             <div style={C.sub}>
               <div style={C.subT}>InquadramentoLavPA</div>
               <div style={C.row}>
-                <F label="Tipo impiego" value={inq.TipoImpiego} onChange={v=>setInq("TipoImpiego",v)} opts={TIPO_IMPIEGO} w="196px"/>
-                <F label="Tipo servizio" value={inq.TipoServizio} onChange={v=>setInq("TipoServizio",v)} opts={TIPO_SERVIZIO} w="176px"/>
-                <F label="Contratto" value={inq.Contratto} onChange={v=>setInq("Contratto",v)} ph="RALN" w="86px"/>
-                <F label="Qualifica" value={inq.Qualifica} onChange={v=>setInq("Qualifica",v)} ph="042000" w="106px"/>
-                <F label="Regime FS" value={inq.RegimeFineServizio} onChange={v=>setInq("RegimeFineServizio",v)} opts={REGIME_FS} w="176px"/>
+                <Fld label="Tipo impiego" value={inq.TipoImpiego} onChange={v=>setInq("TipoImpiego",v)} opts={TIPO_IMPIEGO} w="196px"/>
+                <Fld label="Tipo servizio" value={inq.TipoServizio} onChange={v=>setInq("TipoServizio",v)} opts={TIPO_SERVIZIO} w="176px"/>
+                <Fld label="Contratto" value={inq.Contratto} onChange={v=>setInq("Contratto",v)} ph="RALN" w="86px"/>
+                <Fld label="Qualifica" value={inq.Qualifica} onChange={v=>setInq("Qualifica",v)} ph="042000" w="106px"/>
+                <Fld label="Regime FS" value={inq.RegimeFineServizio} onChange={v=>setInq("RegimeFineServizio",v)} opts={REGIME_FS} w="176px"/>
               </div>
               <div style={{...C.row,alignItems:"center"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
                   <input type="checkbox" checked={inq.hasPartTime} onChange={e=>setInq("hasPartTime",e.target.checked)} style={{cursor:"pointer"}}/>
                   <span style={{fontSize:"11px",color:T.monoText}}>Part-time</span>                </div>
                 {inq.hasPartTime&&<>
-                  <F label="Tipo PT" value={inq.TipoPartTime} onChange={v=>setInq("TipoPartTime",v)} opts={TIPO_PT} w="176px"/>
-                  <F label="% (es. 50000)" value={inq.PercPartTime} onChange={v=>setInq("PercPartTime",v)} ph="50000" w="136px"/>
+                  <Fld label="Tipo PT" value={inq.TipoPartTime} onChange={v=>setInq("TipoPartTime",v)} opts={TIPO_PT} w="176px"/>
+                  <Fld label="% (es. 50000)" value={inq.PercPartTime} onChange={v=>setInq("PercPartTime",v)} ph="50000" w="136px"/>
                 </>}
               </div>
               <div style={C.row}>
-                <F label="Regime TFS/TFR" value={inq.regimeTFS||"TFS"} onChange={v=>setInq("regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="156px"/>
-                <F label="Stipendio tabellare" value={inq.StipTabellare} onChange={v=>setInq("StipTabellare",v)} ph="0,00" w="136px"/>
-                <F label="Retrib. anzianità" value={inq.RetribAnzianita} onChange={v=>setInq("RetribAnzianita",v)} ph="0,00" w="136px"/>
+                <Fld label="Regime TFS/TFR" value={inq.regimeTFS||"TFS"} onChange={v=>setInq("regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="156px"/>
+                <Fld label="Stipendio tabellare" value={inq.StipTabellare} onChange={v=>setInq("StipTabellare",v)} ph="0,00" w="136px"/>
+                <Fld label="Retrib. anzianità" value={inq.RetribAnzianita} onChange={v=>setInq("RetribAnzianita",v)} ph="0,00" w="136px"/>
               </div>
             </div>
             <div style={{fontSize:"9px",color:T.footText,padding:"4px 0"}}>Causale V1: 5 (fissa) · CF Azienda ed EnteVersante presi dall'intestazione corrente: <strong style={{color:T.sectionTitle}}>{a.CFAzienda||"—"}</strong></div>
@@ -1092,18 +1093,18 @@ export default function UniEmensBuilder() {
                     </span>
                   </div>
                   <div style={C.row}>
-                    <F label="Imp. CPDEL totale" value={yr.ImpCPDEL} onChange={v=>setYr(yr.anno,"ImpCPDEL",v)} ph="0,00" w="148px"/>
-                    <F label="Contrib. CPDEL totale" value={yr.ContribCPDEL} onChange={v=>setYr(yr.anno,"ContribCPDEL",v)} ph="0,00" w="148px"/>
-                    <F label="Contrib. 1% totale" value={yr.Contrib1Perc} onChange={v=>setYr(yr.anno,"Contrib1Perc",v)} ph="0,00 (opz.)" w="128px"/>
-                    <F label="Stip. tabellare" value={yr.StipTabellare} onChange={v=>setYr(yr.anno,"StipTabellare",v)} ph="0,00" w="118px"/>
-                    <F label="Retrib. anzianità" value={yr.RetribAnzianita} onChange={v=>setYr(yr.anno,"RetribAnzianita",v)} ph="0,00" w="118px"/>
+                    <Fld label="Imp. CPDEL totale" value={yr.ImpCPDEL} onChange={v=>setYr(yr.anno,"ImpCPDEL",v)} ph="0,00" w="148px"/>
+                    <Fld label="Contrib. CPDEL totale" value={yr.ContribCPDEL} onChange={v=>setYr(yr.anno,"ContribCPDEL",v)} ph="0,00" w="148px"/>
+                    <Fld label="Contrib. 1% totale" value={yr.Contrib1Perc} onChange={v=>setYr(yr.anno,"Contrib1Perc",v)} ph="0,00 (opz.)" w="128px"/>
+                    <Fld label="Stip. tabellare" value={yr.StipTabellare} onChange={v=>setYr(yr.anno,"StipTabellare",v)} ph="0,00" w="118px"/>
+                    <Fld label="Retrib. anzianità" value={yr.RetribAnzianita} onChange={v=>setYr(yr.anno,"RetribAnzianita",v)} ph="0,00" w="118px"/>
                   </div>
                   <div style={C.row}>
-                    <F label={`Imp. ${inq.regimeTFS||"TFS"} totale`} value={yr.ImpTFS} onChange={v=>setYr(yr.anno,"ImpTFS",v)} ph="0,00 (opz.)" w="148px"/>
-                    <F label={`Contrib. ${inq.regimeTFS||"TFS"} totale`} value={yr.ContribTFS} onChange={v=>setYr(yr.anno,"ContribTFS",v)} ph="0,00 (opz.)" w="148px"/>
-                    <F label="Contrib. Credito totale" value={yr.ContribCredito} onChange={v=>setYr(yr.anno,"ContribCredito",v)} ph="0,00" w="148px"/>
-                    <F label="Solidarietà L166/91 Imp." value={yr.ImpSol} onChange={v=>setYr(yr.anno,"ImpSol",v)} ph="0,00 (opz.)" w="148px"/>
-                    <F label="Solidarietà L166/91 Contrib." value={yr.ContribSol} onChange={v=>setYr(yr.anno,"ContribSol",v)} ph="0,00 (opz.)" w="148px"/>
+                    <Fld label={`Imp. ${inq.regimeTFS||"TFS"} totale`} value={yr.ImpTFS} onChange={v=>setYr(yr.anno,"ImpTFS",v)} ph="0,00 (opz.)" w="148px"/>
+                    <Fld label={`Contrib. ${inq.regimeTFS||"TFS"} totale`} value={yr.ContribTFS} onChange={v=>setYr(yr.anno,"ContribTFS",v)} ph="0,00 (opz.)" w="148px"/>
+                    <Fld label="Contrib. Credito totale" value={yr.ContribCredito} onChange={v=>setYr(yr.anno,"ContribCredito",v)} ph="0,00" w="148px"/>
+                    <Fld label="Solidarietà L166/91 Imp." value={yr.ImpSol} onChange={v=>setYr(yr.anno,"ImpSol",v)} ph="0,00 (opz.)" w="148px"/>
+                    <Fld label="Solidarietà L166/91 Contrib." value={yr.ContribSol} onChange={v=>setYr(yr.anno,"ContribSol",v)} ph="0,00 (opz.)" w="148px"/>
                   </div>
                   <div style={{fontSize:"9px",color:T.annoNoteText}}>Imponibile Credito = Imponibile CPDEL (auto). Residuo di arrotondamento → ultima mensilità.</div>
                 </div>
@@ -1388,27 +1389,27 @@ export default function UniEmensBuilder() {
           <div style={C.sec}>
             <div style={C.sT}>DatiMittente</div>
             <div style={C.row}>
-              <F label="CF Persona Mittente" value={m.CFPersonaMittente} onChange={mf("CFPersonaMittente")} ph="CF firmatario" w="176px"/>
-              <F label="Ragione Sociale Mittente" value={m.RagSocMittente} onChange={mf("RagSocMittente")} ph="COMUNE DI ..." full/>
+              <Fld label="CF Persona Mittente" value={m.CFPersonaMittente} onChange={mf("CFPersonaMittente")} ph="CF firmatario" w="176px"/>
+              <Fld label="Ragione Sociale Mittente" value={m.RagSocMittente} onChange={mf("RagSocMittente")} ph="COMUNE DI ..." full/>
             </div>
             <div style={C.row}>
-              <F label="CF Mittente (Ente)" value={m.CFMittente} onChange={mf("CFMittente")} ph="11 cifre" w="156px"/>
-              <F label="CF Softwarehouse" value={m.CFSoftwarehouse} onChange={mf("CFSoftwarehouse")} ph="11 cifre" w="156px"/>
-              <F label="Sede INPS" value={m.SedeINPS} onChange={mf("SedeINPS")} ph="7601" w="96px"/>
+              <Fld label="CF Mittente (Ente)" value={m.CFMittente} onChange={mf("CFMittente")} ph="11 cifre" w="156px"/>
+              <Fld label="CF Softwarehouse" value={m.CFSoftwarehouse} onChange={mf("CFSoftwarehouse")} ph="11 cifre" w="156px"/>
+              <Fld label="Sede INPS" value={m.SedeINPS} onChange={mf("SedeINPS")} ph="7601" w="96px"/>
             </div>
           </div>
           <div style={C.sec}>
             <div style={C.sT}>Azienda / ListaPosPA</div>
             <div style={C.row}>
-              <F label="Anno-Mese Denuncia" value={a.AnnoMeseDenuncia} onChange={af("AnnoMeseDenuncia")} ph="YYYY-MM" w="126px"/>
-              <F label="CF Azienda" value={a.CFAzienda} onChange={af("CFAzienda")} ph="11 cifre" w="156px"/>
-              <F label="Ragione Sociale Ente" value={a.RagSocAzienda} onChange={af("RagSocAzienda")} ph="COMUNE DI ..." full/>
+              <Fld label="Anno-Mese Denuncia" value={a.AnnoMeseDenuncia} onChange={af("AnnoMeseDenuncia")} ph="YYYY-MM" w="126px"/>
+              <Fld label="CF Azienda" value={a.CFAzienda} onChange={af("CFAzienda")} ph="11 cifre" w="156px"/>
+              <Fld label="Ragione Sociale Ente" value={a.RagSocAzienda} onChange={af("RagSocAzienda")} ph="COMUNE DI ..." full/>
             </div>
             <div style={C.row}>
-              <F label="PRGAZIENDA" value={a.PRGAZIENDA} onChange={af("PRGAZIENDA")} ph="00000" w="86px"/>
-              <F label="CF Rappresentante Firmatario" value={a.CFRappresentanteFirmatario} onChange={af("CFRappresentanteFirmatario")} ph="CF rep." w="196px"/>
-              <F label="Codice ISTAT" value={a.ISTAT} onChange={af("ISTAT")} ph="841110" w="146px"/>
-              <F label="Forma Giuridica" value={a.FormaGiuridica} onChange={af("FormaGiuridica")} opts={FG_OPTS} w="236px"/>
+              <Fld label="PRGAZIENDA" value={a.PRGAZIENDA} onChange={af("PRGAZIENDA")} ph="00000" w="86px"/>
+              <Fld label="CF Rappresentante Firmatario" value={a.CFRappresentanteFirmatario} onChange={af("CFRappresentanteFirmatario")} ph="CF rep." w="196px"/>
+              <Fld label="Codice ISTAT" value={a.ISTAT} onChange={af("ISTAT")} ph="841110" w="146px"/>
+              <Fld label="Forma Giuridica" value={a.FormaGiuridica} onChange={af("FormaGiuridica")} opts={FG_OPTS} w="236px"/>
             </div>
           </div>
           <div style={{...C.sec,background:T.totRowBg,borderColor:"#0E2030",fontSize:"11px",color:T.tabHintText,lineHeight:"1.8"}}>
