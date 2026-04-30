@@ -74,7 +74,8 @@ const EMPTY_INQ={dateFrom:"",dateTo:"",TipoImpiego:"1",TipoServizio:"4",
   Contratto:"RALN",Qualifica:"",hasPartTime:false,TipoPartTime:"O",
   PercPartTime:"",RegimeFineServizio:"3",CodiceCessazione:"",
   StipTabellare:"0,00",RetribAnzianita:"0,00",
-  RetribTeoricaTabellareTFR:"0,00",ImponibileTFRUlterioriElem:"0,00",RetribValutabileTFR:"0,00"};
+  RetribTeoricaTabellareTFR:"",ImponibileTFRUlterioriElem:"",
+  ContributoTFRUlterioriElem:"",RetribValutabileTFR:""};
 
 
 /* ════════════════════════════════════════════════════════════
@@ -118,9 +119,10 @@ function parseGestioni(perEl) {
     StipTabellare:"0,00", RetribAnzianita:"0,00",
     regimeTFS:"TFS", ImpTFS:"", ContribTFS:"",
     ImpCredito:"", ContribCredito:"",
-    RetribTeoricaTabellareTFR:"0,00",
-    ImponibileTFRUlterioriElem:"0,00",
-    RetribValutabileTFR:"0,00",
+    RetribTeoricaTabellareTFR:"",
+    ImponibileTFRUlterioriElem:"",
+    ContributoTFRUlterioriElem:"",
+    RetribValutabileTFR:"",
   };
   const gp = perEl.querySelector("GestPensionistica");
   if (gp) {
@@ -136,9 +138,8 @@ function parseGestioni(perEl) {
       g.regimeTFS="TFR";
       g.ImpTFS=getTxt(gpr,"ImponibileTFR");
       g.ContribTFS=getTxt(gpr,"ContributoTFR");
-      g.RetribTeoricaTabellareTFR=getTxt(gpr,"RetribTeoricaTabellareTFR")||"0,00";
-      g.ImponibileTFRUlterioriElem=getTxt(gpr,"ImponibileTFRUlterioriElem")||"0,00";
-      g.RetribValutabileTFR=getTxt(gpr,"RetribValutabileTFR")||"0,00";
+      g.ImponibileTFRUlterioriElem=getTxt(gpr,"ImponibileTFRUlterioriElem")||"";
+      g.ContributoTFRUlterioriElem=getTxt(gpr,"ContributoTFRUlterioriElem")||"";
     } else {
       g.ImpTFS=getTxt(gpr,"ImponibileTFS");
       g.ContribTFS=getTxt(gpr,"ContributoTFS");
@@ -175,8 +176,9 @@ function parsePeriodEl(el, tag, cfAz, prg) {
   const inq = parseInquadramento(el);
   const gest = parseGestioni(el);
   const causale = tag === "V1_PeriodoPrecedente" ? (el.getAttribute("CausaleVariazione") || "5") : "5";
-  /* RetribTeoricaTabellareTFR è figlio diretto di V1/E0 (non di GestPrevidenziale) */
-  const rttTFR = getTxt(el,"RetribTeoricaTabellareTFR") || gest.RetribTeoricaTabellareTFR || "0,00";
+  /* RetribTeoricaTabellareTFR e RetribValutabileTFR: figli diretti di V1/E0 */
+  const rttTFR = getTxt(el,"RetribTeoricaTabellareTFR") || "";
+  const rvTFR  = getTxt(el,"RetribValutabileTFR")       || "";
   const evEls = el.querySelectorAll("EnteVersante");
   const evList = evEls.length > 0
     ? pairEVRows(Array.from(evEls).map(ev => parseEVEl(ev, cfAz, prg)))
@@ -187,6 +189,7 @@ function parsePeriodEl(el, tag, cfAz, prg) {
     CodiceCessazione: getTxt(el,"CodiceCessazione"),
     ...inq, ...gest,
     RetribTeoricaTabellareTFR: rttTFR,
+    RetribValutabileTFR: rvTFR,
     enteVersante: evList,
   };
 }
@@ -276,11 +279,15 @@ function buildXML(m, a, dips) {
           const T = p.regimeTFS === "TFR" ? "TFR" : "TFS";
           x += `                          <GestPrevidenziale>\n                              <CodGestione>6</CodGestione>\n                              <Imponibile${T}>${toIt(p.ImpTFS)}</Imponibile${T}>\n                              <Contributo${T}>${toIt(p.ContribTFS)}</Contributo${T}>\n`;
           if (p.regimeTFS === "TFR") {
-            /* XSD DMA2 GestPrevidenziale TFR — sequenza valida:
-               ImponibileTFR → ContributoTFR → [ImponibileTFRUlterioriElem] → [ContributoTFRUlterioriElem] → ...
-               RetribTeoricaTabellareTFR e RetribValutabileTFR NON sono figli di GestPrevidenziale:
-               appartengono a livello V1_PeriodoPrecedente (confermato da errori XSD schema validator) */
-            x += `                              <ImponibileTFRUlterioriElem>${toIt(p.ImponibileTFRUlterioriElem||"0,00")}</ImponibileTFRUlterioriElem>\n`;
+            /* ImponibileTFRUlterioriElem + ContributoTFRUlterioriElem: emessi SOLO se entrambi > 0.
+               Per causale 5 senza CodiceCessazione il campo NON è valorizzabile (errore 00603I).
+               RetribTeoricaTabellareTFR e RetribValutabileTFR vengono emessi a livello V1 (fuori da GestPrevidenziale). */
+            const ultImp = parseIt(p.ImponibileTFRUlterioriElem);
+            const ultCon = parseIt(p.ContributoTFRUlterioriElem);
+            if (ultImp > 0 && ultCon > 0) {
+              x += `                              <ImponibileTFRUlterioriElem>${toIt(p.ImponibileTFRUlterioriElem)}</ImponibileTFRUlterioriElem>\n`;
+              x += `                              <ContributoTFRUlterioriElem>${toIt(p.ContributoTFRUlterioriElem)}</ContributoTFRUlterioriElem>\n`;
+            }
           }
           x += `                          </GestPrevidenziale>\n`;
         }
@@ -638,9 +645,11 @@ export default function UniEmensBuilder() {
     });
     const totImpTFS = hasTFS ? sumOf("tc7Imp") : "";
     const totContTFS = hasTFS ? sumOf("tc7Cont") : "";
-    /* RetribValutabileTFR calc se regime TFR */
+    /* RetribTeoricaTabellareTFR = ImpTFS × 1,25; RetribValutabileTFR = ImpTFS × 1,25 + UlterioriElem */
     const isTFR = (inq.regimeTFS||"TFS")==="TFR";
-    const rvTFR = isTFR ? toIt(String(round2(parseIt(totImpTFS||"0")*1.25+parseIt(inq.ImponibileTFRUlterioriElem||"0")))) : "0,00";
+    const base125 = isTFR ? toIt(String(round2(parseIt(totImpTFS||"0")*1.25))) : "";
+    const ultImpInq = parseIt(inq.ImponibileTFRUlterioriElem||"0");
+    const rvTFR = isTFR ? toIt(String(round2(parseIt(totImpTFS||"0")*1.25 + ultImpInq))) : "";
     const periodo={
       id:uid(),CausaleVariazione:"5",GiornoInizio:inq.dateFrom,GiornoFine:inq.dateTo,
       TipoImpiego:inq.TipoImpiego,TipoServizio:inq.TipoServizio,Contratto:inq.Contratto,Qualifica:inq.Qualifica,
@@ -651,8 +660,9 @@ export default function UniEmensBuilder() {
       StipTabellare:inq.StipTabellare||"0,00",RetribAnzianita:inq.RetribAnzianita||"0,00",
       regimeTFS:inq.regimeTFS||"TFS",
       ImpTFS:totImpTFS,ContribTFS:totContTFS,
-      RetribTeoricaTabellareTFR:inq.RetribTeoricaTabellareTFR||"0,00",
-      ImponibileTFRUlterioriElem:inq.ImponibileTFRUlterioriElem||"0,00",
+      RetribTeoricaTabellareTFR:base125,
+      ImponibileTFRUlterioriElem:inq.ImponibileTFRUlterioriElem||"",
+      ContributoTFRUlterioriElem:inq.ContributoTFRUlterioriElem||"",
       RetribValutabileTFR:rvTFR,
       ImpCredito:sumOf("tc9Imp"),ContribCredito:sumOf("tc9Cont"),
       enteVersante:evList,
@@ -670,9 +680,10 @@ export default function UniEmensBuilder() {
       hasPartTime:false, TipoPartTime:"O", PercPartTime:"", RegimeFineServizio:"3",
       ImpCPDEL:"", ContribCPDEL:"", Contrib1Perc:"", StipTabellare:"0,00", RetribAnzianita:"0,00",
       regimeTFS:"TFS", ImpTFS:"", ContribTFS:"",
-      RetribTeoricaTabellareTFR:"0,00",
-      ImponibileTFRUlterioriElem:"0,00",
-      RetribValutabileTFR:"0,00",
+      RetribTeoricaTabellareTFR:"",
+      ImponibileTFRUlterioriElem:"",
+      ContributoTFRUlterioriElem:"",
+      RetribValutabileTFR:"",
       ImpCredito:"", ContribCredito:"",
       CodiceCessazione:"",
       enteVersante:[
@@ -692,17 +703,22 @@ export default function UniEmensBuilder() {
   const addPer=(dipId)=>{ const p=mkPer(); setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:[...d.periodi,p]}:d)); setXPer(p.id); };
   const removePer=(dipId,perId)=>{ setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:d.periodi.filter(p=>p.id!==perId)}:d)); if(xPer===perId)setXPer(null); };
 
-  /* ── updPer: auto-sync ImpCredito, auto-calc RetribValutabileTFR ── */
+  /* ── updPer: auto-sync ImpCredito, auto-calc campi retribuzione TFR ── */
   const updPer=(dipId,perId,k,v)=>setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:d.periodi.map(p=>{
     if(p.id!==perId)return p;
     const u={[k]:v};
     if(k==="ImpCPDEL") u.ImpCredito=v;
-    /* TFR auto-recalc RetribValutabileTFR = ImponibileTFR * 1.25 + UlterioriElem */
+    /* TFR auto-calc:
+       RetribTeoricaTabellareTFR = ImponibileTFR × 1,25  (porzione tabellare)
+       RetribValutabileTFR       = ImponibileTFR × 1,25 + ImponibileTFRUlterioriElem
+       (rif. circ. 105/2012, msg. 2440/2019) */
     const isTFR=(k==="regimeTFS"?v:p.regimeTFS)==="TFR";
     if(isTFR&&(k==="ImpTFS"||k==="ImponibileTFRUlterioriElem"||k==="regimeTFS")){
       const imp = k==="ImpTFS"?v:(p.ImpTFS||"0");
-      const ult = k==="ImponibileTFRUlterioriElem"?v:(p.ImponibileTFRUlterioriElem||"0,00");
-      u.RetribValutabileTFR=toIt(String(round2(parseIt(imp)*1.25+parseIt(ult))));
+      const ult = k==="ImponibileTFRUlterioriElem"?v:(p.ImponibileTFRUlterioriElem||"");
+      const base = round2(parseIt(imp)*1.25);
+      u.RetribTeoricaTabellareTFR = toIt(String(base));
+      u.RetribValutabileTFR       = toIt(String(round2(base + parseIt(ult||"0"))));
     }
     return{...p,...u};
   })}:d));
@@ -879,17 +895,37 @@ export default function UniEmensBuilder() {
         <div style={C.row}>
           <F label="Regime" value={p.regimeTFS} onChange={v=>updPer(dip.id,p.id,"regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="146px"/>
           <F label={`Imponibile ${p.regimeTFS}`} value={p.ImpTFS} onChange={v=>updPer(dip.id,p.id,"ImpTFS",v)} ph="0,00" w="136px"/>
-          <F label={`Contributo ${p.regimeTFS}`} value={p.ContribTFS} onChange={v=>updPer(dip.id,p.id,"ContribTFS",v)} ph="0,00" w="136px"/>
+          <F label={`Contributo ${p.regimeTFS}`} value={p.ContribTFS}
+            onChange={v=>updPer(dip.id,p.id,"ContribTFS",v)} ph="0,00" w="136px"
+            red={!!(p.ImpTFS&&p.ContribTFS&&parseIt(p.ContribTFS)>=parseIt(p.ImpTFS))}/>
+          {p.regimeTFS==="TFR"&&p.ImpTFS&&p.ContribTFS&&parseIt(p.ContribTFS)>=parseIt(p.ImpTFS)&&(
+            <div style={{flex:"1 1 100%",fontSize:"9px",color:"#991B1B",fontWeight:"700",marginTop:"-4px"}}>
+              ⚠ 00089I: ContributoTFR deve essere minore di ImponibileTFR
+            </div>
+          )}
         </div>
         {p.regimeTFS==="TFR"&&(
           <>
+            {/* RetribTeoricaTabellareTFR e RetribValutabileTFR — auto-calc da ImpTFS×1,25 */}
             <div style={C.row}>
-              <F label="Retrib. Teorica Tabellare TFR" value={p.RetribTeoricaTabellareTFR} onChange={v=>updPer(dip.id,p.id,"RetribTeoricaTabellareTFR",v)} ph="0,00" w="218px"/>
-              <F label="Imponibile TFR Ulteriori Elem." value={p.ImponibileTFRUlterioriElem} onChange={v=>updPer(dip.id,p.id,"ImponibileTFRUlterioriElem",v)} ph="0,00" w="198px"/>
-              <F label="Retrib. Valutabile TFR (auto)" value={p.RetribValutabileTFR} onChange={v=>updPer(dip.id,p.id,"RetribValutabileTFR",v)} ph="0,00" w="198px" blue/>
+              <F label="Retrib. Teorica Tabellare TFR (auto)" value={p.RetribTeoricaTabellareTFR} onChange={v=>updPer(dip.id,p.id,"RetribTeoricaTabellareTFR",v)} ph="auto" w="228px" blue/>
+              <F label="Retrib. Valutabile TFR (auto)" value={p.RetribValutabileTFR} onChange={v=>updPer(dip.id,p.id,"RetribValutabileTFR",v)} ph="auto" w="198px" blue/>
             </div>
-            <div style={{fontSize:"9px",color:"#1E40AF",marginTop:"-4px",marginBottom:"4px",paddingLeft:"2px"}}>
-              Formula auto: ImponibileTFR × 1,25 + ImponibileTFRUlterioriElem (circ. 105/2012, msg. 2440/2019). Il campo blu è editabile se necessario.
+            <div style={{fontSize:"9px",color:"#1E40AF",marginTop:"-4px",marginBottom:"6px",paddingLeft:"2px"}}>
+              Auto-calc: ImponibileTFR × 1,25 (campi blu editabili). Emessi a livello V1 (non in GestPrevidenziale).
+            </div>
+            {/* UlterioriElem — avanzato, solo per cessazione */}
+            <div style={{background:"#FFFBEB",border:"1px solid #FCD34D",borderRadius:"4px",padding:"7px 10px",marginTop:"4px"}}>
+              <div style={{fontSize:"9px",fontWeight:"700",color:"#92400E",marginBottom:"5px"}}>
+                UlterioriElem (avanzato) — solo se CodiceCessazione presente · errore 00603I se usati senza cessazione
+              </div>
+              <div style={C.row}>
+                <F label="Imponibile TFR UlterioriElem" value={p.ImponibileTFRUlterioriElem} onChange={v=>updPer(dip.id,p.id,"ImponibileTFRUlterioriElem",v)} ph="lascia vuoto se 0" w="198px"/>
+                <F label="Contributo TFR UlterioriElem" value={p.ContributoTFRUlterioriElem} onChange={v=>updPer(dip.id,p.id,"ContributoTFRUlterioriElem",v)} ph="lascia vuoto se 0" w="198px"/>
+              </div>
+              <div style={{fontSize:"9px",color:"#92400E"}}>
+                Se valorizzati: devono essere entrambi &gt; 0 (00601I). Non emessi nell'XML se 0 o vuoti.
+              </div>
             </div>
           </>
         )}
@@ -1413,8 +1449,8 @@ export default function UniEmensBuilder() {
 
       <div style={C.hdr}>
         <div>
-          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.2</div>
-          <div style={C.hdrS}>Fix XSD: RetribValutabileTFR + RetribTeoricaTabellareTFR → livello V1 · GestPrevidenziale TFR solo ImponibileTFR+ContributoTFR+UlterioriElem</div>
+          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.3</div>
+          <div style={C.hdrS}>Fix TFR: ImponibileTFRUlterioriElem omesso se 0 · RetribTeorica+Valutabile auto ImpTFS×1,25 · ContributoTFRUlterioriElem · warn 00089I</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
           <span style={{fontSize:"11px",color:"#94A3B8",fontVariantNumeric:"tabular-nums"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
