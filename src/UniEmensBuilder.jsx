@@ -423,981 +423,200 @@ function generatePDF(m, a, dips) {
    Ocean    #0369A1  interactive mid-blue
    Gold     #C48820  accent sparingly
 ═══════════════════════════════════════════ */
-const C = {
-  /* ── Shell ── */
-  app:   { fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", fontSize: "14px", background: "#111C28", color: "#DCE8F2", minHeight: "100vh", display: "flex", flexDirection: "column" },
-
-  /* ── Header ── */
-  hdr:   { background: "#142232", borderBottom: "2px solid #00AEEF33", padding: "11px 18px", display: "flex", alignItems: "center", gap: "12px" },
-  hdrT:  { fontSize: "15px", fontWeight: "700", color: "#00AEEF", letterSpacing: "-0.01em" },
-  hdrS:  { fontSize: "10px", color: "#3A5870", marginTop: "3px", letterSpacing: "0.02em" },
-
-  /* ── Tabs ── */
-  tabs:  { display: "flex", background: "#111C28", borderBottom: "1px solid #17304A" },
-  tab:   (a) => ({ padding: "9px 20px", cursor: "pointer", fontSize: "12px", fontWeight: "600", border: "none", background: "transparent", color: a ? "#42C8F0" : "#8DA4B8", borderBottom: a ? "2px solid #42C8F0" : "2px solid transparent", letterSpacing: "0.01em", transition: "color 150ms" }),
-
-  /* ── Body / Sections ── */
-  body:  { flex: 1, overflowY: "auto", padding: "18px 20px" },
-  sec:   { background: "#142232", border: "1px solid #1A3450", borderRadius: "8px", padding: "14px 16px", marginBottom: "14px" },
-  sT:    { fontSize: "10px", fontWeight: "700", color: "#00AEEF", textTransform: "uppercase", letterSpacing: "1.2px", marginBottom: "12px", paddingBottom: "7px", borderBottom: "1px solid #17304A" },
-  row:   { display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "9px" },
-
-  /* ── Labels ── */
-  lbl:   { fontSize: "10px", color: "#4A6E8C", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: "4px", display: "block", fontWeight: "600" },
-
-  /* ── Inputs ── */
-  inp:   { background: "#070F1C", border: "1px solid #1C3A56", borderRadius: "4px", color: "#DCE8F2", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
-  inpG:  { background: "#04130A", border: "1px solid #0E4228", borderRadius: "4px", color: "#7EE8A4", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
-  inpR:  { background: "#160606", border: "1px solid #581818", borderRadius: "4px", color: "#FCA5A5", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
-  sel:   { background: "#070F1C", border: "1px solid #1C3A56", borderRadius: "4px", color: "#DCE8F2", padding: "5px 8px", fontSize: "11px", outline: "none", width: "100%", boxSizing: "border-box" },
-
-  /* ── Buttons
-       p = primary (ocean)   s = success (emerald)  x = danger (red)
-       w = warning (amber)   pdf = purple            imp = teal-dark
-       cum = violet          d = default (slate)
-  ── */
-  btn:   (v="d") => ({
-    padding: "5px 12px", borderRadius: "5px", border: "none", cursor: "pointer",
-    fontSize: "11px", fontWeight: "600", letterSpacing: "0.02em",
-    background: v==="p"?"#0E4F78":v==="s"?"#064E3B":v==="x"?"#7F1D1D":v==="w"?"#78350F":v==="pdf"?"#3B1F6A":v==="imp"?"#0A3A22":v==="cum"?"#2E1A5E":"#152030",
-    color:      v==="p"?"#BAE6FD":v==="s"?"#A7F3D0":v==="x"?"#FCA5A5":v==="w"?"#FDE68A":v==="pdf"?"#DDD6FE":v==="imp"?"#86EFAC":v==="cum"?"#C4B5FD":"#7EB8D4",
-  }),
-
-  /* ── Cards ── */
-  card:  { background: "#0E1B2A", border: "1px solid #1A3450", borderRadius: "6px", marginBottom: "8px", overflow: "hidden" },
-  cHdr:  { padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#1B2A39" },
-  cBody: { padding: "15px 16px" },
-
-  /* ── Sub-sections ── */
-  sub:   { background: "#070F1C", border: "1px solid #172E46", borderRadius: "5px", padding: "10px 12px", marginBottom: "10px" },
-  subT:  { fontSize: "9px", fontWeight: "700", color: "#0090B8", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" },
-
-  /* ── Tables ── */
-  th:    { background: "#050D18", padding: "4px 7px", textAlign: "left", color: "#2D5270", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #172E46", whiteSpace: "nowrap" },
-  thR:   { background: "#150506", padding: "4px 7px", textAlign: "right", color: "#7A4040", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #172E46", whiteSpace: "nowrap" },
-  td:    { padding: "6px 6px", borderBottom: "1px solid #132638", verticalAlign: "top" },
-  tdR:   { padding: "6px 6px", borderBottom: "1px solid #132638", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" },
-  sumRow:(s) => ({ background: s==="over"?"#280A0A":s==="under"?"#191300":"#051A0C", fontWeight: "700" }),
-
-  /* ── Badges — pill shape per design system ── */
-  bdg:   (c) => ({ background: c+"28", color: c, padding: "2px 9px", borderRadius: "9999px", fontSize: "10px", fontWeight: "700", fontFamily: "monospace", whiteSpace: "nowrap" }),
-
-  /* ── Misc ── */
-  mono:  { fontFamily: "Inter, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize: "12px", fontVariantNumeric: "tabular-nums" },
-  empty: { textAlign: "center", color: "#1E3A58", padding: "32px", fontSize: "12px", fontStyle: "italic" },
-
-  /* ── Alerts — e=error  o=ok  (default)=warning ── */
-  alert: (t) => ({
-    background: t==="e"?"#160808":t==="o"?"#051509":"#161000",
-    border:     `1px solid ${t==="e"?"#5C2020":t==="o"?"#0A5228":"#5C4200"}`,
-    borderRadius: "6px", padding: "10px 14px", marginBottom: "10px",
-    fontSize: "11px", lineHeight: "1.65",
-    color: t==="e"?"#FCA5A5":t==="o"?"#86EFAC":"#FDE68A",
-  }),
-
-  /* ── Modal ── */
-  modal:    { position: "fixed", inset: 0, background: "#000000D0", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
-  modalBox: { background: "#142232", border: "1px solid #C04820", borderRadius: "10px", padding: "24px 28px", maxWidth: "400px", width: "90%", boxShadow: "0 16px 48px rgba(0,0,0,0.5)" },
+const PALETTE = {
+  light: {
+    appBg: "#F9FAFB",
+    bodyText: "#334155",
+    hdrBg: "#1E2939",
+    hdrBorder: "2px solid #00AEEF33",
+    hdrTitle: "#FFFFFF",
+    hdrSub: "#C8D6E5",
+    tabsBg: "#FFFFFF",
+    tabsBorder: "#D9E3EC",
+    tabOn: "#0369A1",
+    tabOff: "#6A7282",
+    bodyPadBg: "#F3F7FA",
+    secBg: "#FFFFFF",
+    secBorder: "#E5E7EB",
+    secShadow: "0 4px 12px rgba(0,0,0,0.06)",
+    sectionTitle: "#0369A1",
+    sectionRule: "#D9E3EC",
+    label: "#6A7282",
+    inputBg: "#FFFFFF",
+    inputBorder: "#CBD5E1",
+    inputText: "#334155",
+    inputShadow: "inset 0 1px 0 rgba(255,255,255,0.9)",
+    inputGreenBg: "#F0FDF4",
+    inputGreenBorder: "#86EFAC",
+    inputGreenText: "#166534",
+    inputRedBg: "#FEF2F2",
+    inputRedBorder: "#FCA5A5",
+    inputRedText: "#991B1B",
+    buttonBaseBg: "#E2E8F0",
+    buttonBaseText: "#334155",
+    cardBg: "#FFFFFF",
+    cardBorder: "#E5E7EB",
+    cardHeadBg: "#F8FAFC",
+    subBg: "#F8FBFD",
+    subBorder: "#E2E8F0",
+    subTitle: "#0369A1",
+    thBg: "#EFF6FF",
+    thColor: "#4A5565",
+    thDangerBg: "#FFF1F2",
+    thDangerColor: "#9F1239",
+    tdBorder: "#E6EDF3",
+    sumOk: "#F0FDF4",
+    sumOver: "#FEF2F2",
+    sumUnder: "#FFFBEB",
+    badgeText: "#FFFFFF",
+    empty: "#94A3B8",
+    alertErrBg: "#FEF2F2",
+    alertErrBorder: "#FCA5A5",
+    alertErrText: "#991B1B",
+    alertOkBg: "#F0FDF4",
+    alertOkBorder: "#86EFAC",
+    alertOkText: "#166534",
+    alertWarnBg: "#FFFBEB",
+    alertWarnBorder: "#FCD34D",
+    alertWarnText: "#92400E",
+    modalOverlay: "rgba(15,23,42,0.32)",
+    modalBg: "#FFFFFF",
+    modalBorder: "#D6EAF8",
+    monoText: "#334155",
+    xmlBg: "#FFFFFF",
+    xmlBorder: "#CBD5E1",
+    xmlText: "#166534",
+    stickyBg: "#F8FBFD",
+    stickyText: "#0369A1",
+    helperGreen: "#15803D",
+    congrBg: "#F8FBFD",
+    congrBorder: "#D6EAF8",
+    congrHeadBg: "#EAF4FB",
+    congrHeadText: "#0369A1",
+    footText: "#6A7282",
+    ok: "#22C55E",
+    okSoft: "#166534",
+    warn: "#F59E0B",
+    warnSoft: "#92400E",
+    err: "#EF4444",
+    errSoft: "#991B1B",
+    focus: "#2563EB"
+  },
+  dark: {
+    appBg: "#182736",
+    bodyText: "#DCE8F2",
+    hdrBg: "#1E2939",
+    hdrBorder: "2px solid #00AEEF33",
+    hdrTitle: "#32C5F4",
+    hdrSub: "#B7C7D3",
+    tabsBg: "#142232",
+    tabsBorder: "#3B6078",
+    tabOn: "#42C8F0",
+    tabOff: "#8DA4B8",
+    bodyPadBg: "#111C28",
+    secBg: "#182837",
+    secBorder: "#3F647C",
+    secShadow: "0 6px 18px rgba(0,0,0,0.10)",
+    sectionTitle: "#43C7EF",
+    sectionRule: "#3B6078",
+    label: "#AFC0CD",
+    inputBg: "#1B2C3A",
+    inputBorder: "#4B6A80",
+    inputText: "#F2F7FB",
+    inputShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+    inputGreenBg: "#0F2018",
+    inputGreenBorder: "#1F7A4A",
+    inputGreenText: "#D6FAE3",
+    inputRedBg: "#241010",
+    inputRedBorder: "#9A3333",
+    inputRedText: "#FEE2E2",
+    buttonBaseBg: "#20303F",
+    buttonBaseText: "#DCE8F2",
+    cardBg: "#182736",
+    cardBorder: "#30536F",
+    cardHeadBg: "#1B2A39",
+    subBg: "#1A2B39",
+    subBorder: "#406379",
+    subTitle: "#59CDEA",
+    thBg: "#203442",
+    thColor: "#A9BED0",
+    thDangerBg: "#2B1414",
+    thDangerColor: "#D29A9A",
+    tdBorder: "#3B6078",
+    sumOk: "#102418",
+    sumOver: "#2B1414",
+    sumUnder: "#30250F",
+    badgeText: "#FFFFFF",
+    empty: "#90A5B8",
+    alertErrBg: "#241010",
+    alertErrBorder: "#9A3333",
+    alertErrText: "#FEE2E2",
+    alertOkBg: "#0F2018",
+    alertOkBorder: "#1F7A4A",
+    alertOkText: "#D6FAE3",
+    alertWarnBg: "#2A2110",
+    alertWarnBorder: "#B45309",
+    alertWarnText: "#FDE68A",
+    modalOverlay: "rgba(6,12,18,0.74)",
+    modalBg: "#1A2A38",
+    modalBorder: "#4D7188",
+    monoText: "#DCE8F2",
+    xmlBg: "#152431",
+    xmlBorder: "#3A617B",
+    xmlText: "#D7F3E2",
+    stickyBg: "#1A2836",
+    stickyText: "#59CDEA",
+    helperGreen: "#9BE5B8",
+    congrBg: "#1B2B38",
+    congrBorder: "#3B6078",
+    congrHeadBg: "#203442",
+    congrHeadText: "#54CAE9",
+    footText: "#A9C0CF",
+    ok: "#86EFAC",
+    okSoft: "#BBF7D0",
+    warn: "#FBBF24",
+    warnSoft: "#FDE68A",
+    err: "#F87171",
+    errSoft: "#FECACA",
+    focus: "#51A2FF"
+  }
 };
 
-/* ════ FIELD ════ */
-function F({ label, value, onChange, ph="", w="140px", full=false, opts=null, green=false, red=false, note="" }) {
-  return (
-    <div style={{ display:"flex", flexDirection:"column", flex: full?"1 1 100%":`1 1 ${w}`, minWidth: full?"180px":w }}>
-      <label style={C.lbl}>{label}{note&&<span style={{color:"#34D399",marginLeft:"5px",fontWeight:"700",fontSize:"9px"}}>{note}</span>}</label>
-      {opts
-        ? <select style={C.sel} value={value} onChange={e=>onChange(e.target.value)}>{opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>
-        : <input style={red?C.inpR:green?C.inpG:C.inp} value={value} onChange={e=>onChange(e.target.value)} placeholder={ph}/>}
-    </div>
-  );
-}
+const T = PALETTE[theme] || PALETTE.light;
 
-/* ════ LOOKUP TABLES ════ */
-const CAUSALE=[{v:"1",l:"1 – Integrazione"},{v:"5",l:"5 – Sostituzione / mai denunciato"},{v:"6",l:"6 – Annullamento"},{v:"7",l:"7 – Conguaglio previdenziale"}];
-const TIPO_IMPIEGO=[{v:"1",l:"1 – TI tempo pieno"},{v:"2",l:"2 – TI part-time"},{v:"8",l:"8 – TD tempo pieno"},{v:"9",l:"9 – TD part-time"}];
-const TIPO_SERVIZIO=[{v:"4",l:"4 – Ordinario"},{v:"5",l:"5 – Straordinario"},{v:"6",l:"6 – Lavoro autonomo"}];
-const REGIME_FS=[{v:"1",l:"1 – TFR privatistico"},{v:"2",l:"2 – TFR misto"},{v:"3",l:"3 – TFS (INADEL)"}];
-const TIPO_PT=[{v:"O",l:"O – Orizzontale"},{v:"V",l:"V – Verticale"},{v:"M",l:"M – Misto"},{v:"P",l:"P – Verticale ciclico"}];
-const TC_OPTS=[{v:"1",l:"1 – CPDEL"},{v:"2",l:"2 – C.Ins."},{v:"3",l:"3 – C.San."},{v:"5",l:"5 – Agg.spec."},{v:"6",l:"6 – Agg.1%"},{v:"7",l:"7 – TFS/INADEL"},{v:"8",l:"8 – Cred.45/07"},{v:"9",l:"9 – Fondo Cred."}];
-const FG_OPTS=[{v:"2410",l:"2410 – Regione"},{v:"2420",l:"2420 – Provincia"},{v:"2430",l:"2430 – Comune"},{v:"2440",l:"2440 – Comunità montana"},{v:"2450",l:"2450 – Unione comuni"},{v:"2460",l:"2460 – Città metropolitana"},{v:"2711",l:"2711 – Ente pub. ricerca"},{v:"2712",l:"2712 – IPAB"},{v:"2720",l:"2720 – Camera commercio"},{v:"2740",l:"2740 – Consorzio dir.pub."},{v:"2790",l:"2790 – Altro ente pub."}];
+const C = {
+  app: { fontFamily:"Inter,Segoe UI,system-ui,sans-serif", fontSize:"14px", background:T.appBg, color:T.bodyText, minHeight:"100vh", display:"flex", flexDirection:"column" },
+  hdr: { background:T.hdrBg, borderBottom:T.hdrBorder, padding:"13px 20px", display:"flex", alignItems:"center", gap:12 },
+  hdrT: { fontSize:"19px", fontWeight:800, color:T.hdrTitle, letterSpacing:"-0.015em", textShadow:"0 0 0 rgba(0,0,0,0)" },
+  hdrS: { fontSize:"12px", color:T.hdrSub, marginTop:4, letterSpacing:"0.03em" },
+  tabs:{ display:"flex", background:T.tabsBg, borderBottom:`1px solid ${T.tabsBorder}` },
+  tab:(a)=>({ padding:"12px 20px", cursor:"pointer", fontSize:"14px", fontWeight:700, border:"none", background:"transparent", color:a ? T.tabOn : T.tabOff, borderBottom:a ? `2px solid ${T.tabOn}` : "2px solid transparent", letterSpacing:"0.01em", transition:"color 150ms" }),
+  body:{ flex:1, overflowY:"auto", padding:"18px 20px", background:T.bodyPadBg },
+  sec: { background:T.secBg, border:`1px solid ${T.secBorder}`, borderRadius:10, padding:"18px 20px", marginBottom:18, boxShadow:T.secShadow },
+  sT: { fontSize:"12px", fontWeight:800, color:T.sectionTitle, textTransform:"uppercase", letterSpacing:"1.3px", marginBottom:13, paddingBottom:8, borderBottom:`1px solid ${T.sectionRule}` },
+  row: { display:"flex", flexWrap:"wrap", gap:14, marginBottom:12 },
+  lbl: { fontSize:"12px", color:T.label, textTransform:"uppercase", letterSpacing:"0.8px", marginBottom:6, display:"block", fontWeight:700 },
+  inp: { background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:8, color:T.inputText, padding:"9px 12px", fontSize:"14px", fontFamily:"Inter, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", outline:"none", width:"100%", boxSizing:"border-box", boxShadow:T.inputShadow },
+  inpG: { background:T.inputGreenBg, border:`1px solid ${T.inputGreenBorder}`, borderRadius:8, color:T.inputGreenText, padding:"9px 12px", fontSize:"14px", fontFamily:"Inter, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", outline:"none", width:"100%", boxSizing:"border-box", boxShadow:T.inputShadow },
+  inpR: { background:T.inputRedBg, border:`1px solid ${T.inputRedBorder}`, borderRadius:8, color:T.inputRedText, padding:"9px 12px", fontSize:"14px", fontFamily:"Inter, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", outline:"none", width:"100%", boxSizing:"border-box", boxShadow:T.inputShadow },
+  sel: { background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:8, color:T.inputText, padding:"9px 12px", fontSize:"14px", outline:"none", width:"100%", boxSizing:"border-box", boxShadow:T.inputShadow },
+  btn:(v="d")=>({ padding:"8px 15px", borderRadius:8, border:"none", cursor:"pointer", fontSize:"13px", fontWeight:600, letterSpacing:"0.02em", background:v==="p"?"#0369A1":v==="s"?"#166534":v==="x"?"#991B1B":v==="w"?"#92400E":v==="pdf"?"#4F46E5":v==="imp"?"#0F766E":v==="cum"?"#7C3AED":T.buttonBaseBg, color:v==="p"||v==="pdf"||v==="cum"?"#FFFFFF":v==="s"?"#ECFDF5":v==="x"?"#FEF2F2":v==="w"?"#FFFBEB":v==="imp"?"#F0FDFA":T.buttonBaseText }),
+  card: { background:T.cardBg, border:`1px solid ${T.cardBorder}`, borderRadius:8, marginBottom:10, overflow:"hidden" },
+  cHdr: { padding:"12px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", background:T.cardHeadBg },
+  cBody: { padding:"15px 16px" },
+  sub: { background:T.subBg, border:`1px solid ${T.subBorder}`, borderRadius:8, padding:"13px 15px", marginBottom:13 },
+  subT: { fontSize:"11px", fontWeight:800, color:T.subTitle, textTransform:"uppercase", letterSpacing:"1.2px", marginBottom:10 },
+  th: { background:T.thBg, padding:"8px 10px", textAlign:"left", color:T.thColor, fontWeight:800, fontSize:"12px", borderBottom:`1px solid ${T.sectionRule}`, whiteSpace:"nowrap" },
+  thR: { background:T.thDangerBg, padding:"8px 10px", textAlign:"right", color:T.thDangerColor, fontWeight:800, fontSize:"12px", borderBottom:`1px solid ${T.sectionRule}`, whiteSpace:"nowrap" },
+  td: { padding:"8px 8px", borderBottom:`1px solid ${T.tdBorder}`, verticalAlign:"top" },
+  tdR: { padding:"8px 8px", borderBottom:`1px solid ${T.tdBorder}`, verticalAlign:"top", textAlign:"right", fontFamily:"Inter, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontVariantNumeric:"tabular-nums", fontSize:"13px", fontWeight:600 },
+  sumRow:(s)=>({ background:s==="over"?T.sumOver:s==="under"?T.sumUnder:T.sumOk, fontWeight:700 }),
+  bdg:(c)=>({ background:c+"28", color:T.badgeText, padding:"3px 10px", borderRadius:9999, fontSize:"11px", fontWeight:700, fontFamily:"Inter, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", whiteSpace:"nowrap" }),
+  mono: { fontFamily:"Inter, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize:"12px", fontVariantNumeric:"tabular-nums", color:T.monoText },
+  empty: { textAlign:"center", color:T.empty, padding:36, fontSize:"13px", fontStyle:"italic" },
+  alert:(t="w")=>({ background:t==="e"?T.alertErrBg:t==="o"?T.alertOkBg:T.alertWarnBg, border:`1px solid ${t==="e"?T.alertErrBorder:t==="o"?T.alertOkBorder:T.alertWarnBorder}`, borderRadius:8, padding:"12px 15px", marginBottom:12, fontSize:"12px", lineHeight:1.7, color:t==="e"?T.alertErrText:t==="o"?T.alertOkText:T.alertWarnText }),
+  modal: { position:"fixed", inset:0, background:T.modalOverlay, backdropFilter:"blur(3px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:"20px" },
+  modalBox: { background:T.modalBg, border:`1px solid ${T.modalBorder}`, borderRadius:12, padding:"28px 32px", maxWidth:440, width:"92%", boxShadow:"0 22px 60px rgba(0,0,0,0.16)" }
+};
 
-const EMPTY_M = { CFPersonaMittente:"", RagSocMittente:"", CFMittente:"", CFSoftwarehouse:"00000000000", SedeINPS:"" };
-const EMPTY_A = { AnnoMeseDenuncia:"", CFAzienda:"", RagSocAzienda:"", PRGAZIENDA:"00000", CFRappresentanteFirmatario:"", ISTAT:"", FormaGiuridica:"2430" };
 
-/* ════════════════════════════════════════════════════════════
-   MAIN COMPONENT
-════════════════════════════════════════════════════════════ */
-export default function UniEmensBuilder() {
-  const [tab, setTab] = useState(0);
-  const [m, setM] = useState(EMPTY_M);
-  const [a, setA] = useState(EMPTY_A);
-  const [dips, setDips] = useState([]);
-  const [xDip, setXDip] = useState(null);
-  const [xPer, setXPer] = useState(null);
-  const [xml, setXml] = useState("");
-  const [dupCount, setDupCount] = useState(null);
-  const [warns, setWarns] = useState([]);
-  const [showReset, setShowReset] = useState(false);
-  const [importModal, setImportModal] = useState(null);
-  const [cumuloModal, setCumuloModal] = useState(null); // { mittente, azienda, isVariazione, workers, errors, selected }
-  const fileRef = useRef(null);
-
-  const mf = (k) => (v) => setM(p=>({...p,[k]:v}));
-  const af = (k) => (v) => setA(p=>({...p,[k]:v}));
-
-  /* ── RESET ── */
-  const doReset = () => {
-    setM(EMPTY_M); setA(EMPTY_A); setDips([]);
-    setXDip(null); setXPer(null); setXml(""); setDupCount(null); setWarns([]);
-    setShowReset(false); setTab(0);
-  };
-
-  /* ── Import XML ── */
-  const handleFileImport = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = ""; // reset so same file can be re-selected
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = parseUniEmensXML(ev.target.result);
-      if (result.error) { alert("Errore import: " + result.error); return; }
-      // pre-select all workers
-      const selected = new Set(result.workers.map(w => w.id));
-      setImportModal({ ...result, selected });
-    };
-    reader.readAsText(file, "UTF-8");
-  };
-
-  const doImport = (mode) => {
-    if (!importModal) return;
-    const chosen = importModal.workers.filter(w => importModal.selected.has(w.id));
-    if (mode === "replace") {
-      setM(importModal.mittente);
-      setA(importModal.azienda);
-      setDips(chosen);
-      setXml(""); setDupCount(null); setWarns([]);
-      setXDip(chosen.length > 0 ? chosen[0].id : null);
-      setXPer(null);
-      setTab(1);
-    } else {
-      // merge: update m and a, append workers
-      setM(importModal.mittente);
-      setA(importModal.azienda);
-      setDips(prev => [...prev, ...chosen]);
-      if (chosen.length > 0) { setXDip(chosen[0].id); setXPer(null); setTab(1); }
-    }
-    setImportModal(null);
-  };
-
-  /* ── Cumulo Mensilità ── */
-  const openCumulo=(dipId)=>setCumuloModal({step:1,dipId,inq:{...EMPTY_INQ},yearRows:[],evGrid:[],allMonths:[]});
-  const setInq=(k,v)=>setCumuloModal(p=>({...p,inq:{...p.inq,[k]:v}}));
-  const setYr=(anno,k,v)=>setCumuloModal(p=>({...p,yearRows:p.yearRows.map(r=>r.anno===anno?{...r,[k]:v}:r)}));
-  const setEVCell=(id,k,v)=>setCumuloModal(p=>({...p,evGrid:p.evGrid.map(r=>{
-    if(r.id!==id)return r;
-    const u={...r,[k]:v};
-    if(k==="tc1Imp"){if(r.tc9Imp===r.tc1Imp)u.tc9Imp=v;if(r.tc6Imp===r.tc1Imp)u.tc6Imp=v;if(r.tcSImp===r.tc1Imp)u.tcSImp=v;}
-    return u;
-  })}));
-  const cumuloStep2=()=>{
-    const{inq}=cumuloModal;
-    if(!inq.dateFrom||!inq.dateTo||inq.dateFrom>inq.dateTo)return;
-    setCumuloModal(p=>({...p,step:2,yearRows:initYearRows(inq.dateFrom,inq.dateTo)}));
-  };
-  const cumuloStep3=()=>{
-    const{inq,yearRows}=cumuloModal;
-    const months=buildMonthList(inq.dateFrom,inq.dateTo);
-    setCumuloModal(p=>({...p,step:3,evGrid:buildEvGrid(yearRows,months),allMonths:months}));
-  };
-  const confirmCumulo=()=>{
-    const{dipId,inq,evGrid}=cumuloModal;
-    const cfAz=a.CFAzienda,prg=a.PRGAZIENDA||"00000";
-    const sumOf=key=>toIt(String(round2(evGrid.reduce((s,r)=>s+parseIt(r[key]),0))));
-    const hasTFS=evGrid.some(r=>parseIt(r.tc7Imp)>0);
-    const hasC1=evGrid.some(r=>parseIt(r.tc6Cont)>0);
-    const hasSol=evGrid.some(r=>parseIt(r.tcSCont)>0);
-    const evList=[];
-    evGrid.forEach(row=>{
-      const t1=uid(),t9=uid();
-      evList.push({id:t1,TipoContributo:"1",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc1Imp,Contributo:row.tc1Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2",pairedTc9:t9});
-      evList.push({id:t9,TipoContributo:"9",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc9Imp,Contributo:row.tc9Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2",pairedWith:t1});
-      if(hasTFS&&parseIt(row.tc7Imp)>0)evList.push({id:uid(),TipoContributo:"7",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc7Imp,Contributo:row.tc7Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2"});
-      if(hasC1&&parseIt(row.tc6Cont)>0)evList.push({id:uid(),TipoContributo:"6",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tc6Imp,Contributo:row.tc6Cont,AnnoMeseErogazione:row.annoMese,Aliquota:"2"});
-      if(hasSol&&parseIt(row.tcSCont)>0)evList.push({id:uid(),TipoContributo:"6",CFAzienda:cfAz,PRGAZIENDA:prg,Imponibile:row.tcSImp,Contributo:row.tcSCont,AnnoMeseErogazione:row.annoMese,Aliquota:"2"});
-    });
-    const periodo={
-      id:uid(),CausaleVariazione:"5",GiornoInizio:inq.dateFrom,GiornoFine:inq.dateTo,
-      TipoImpiego:inq.TipoImpiego,TipoServizio:inq.TipoServizio,Contratto:inq.Contratto,Qualifica:inq.Qualifica,
-      hasPartTime:inq.hasPartTime,TipoPartTime:inq.TipoPartTime,PercPartTime:inq.PercPartTime,
-      RegimeFineServizio:inq.RegimeFineServizio,CodiceCessazione:inq.CodiceCessazione||"",
-      ImpCPDEL:sumOf("tc1Imp"),ContribCPDEL:sumOf("tc1Cont"),
-      Contrib1Perc:hasC1?sumOf("tc6Cont"):"",
-      StipTabellare:inq.StipTabellare||"0,00",RetribAnzianita:inq.RetribAnzianita||"0,00",
-      regimeTFS:inq.regimeTFS||"TFS",
-      ImpTFS:hasTFS?sumOf("tc7Imp"):"",ContribTFS:hasTFS?sumOf("tc7Cont"):"",
-      ImpCredito:sumOf("tc9Imp"),ContribCredito:sumOf("tc9Cont"),
-      enteVersante:evList,
-    };
-    setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:[...d.periodi,periodo]}:d));
-    setXDip(dipId);setXPer(periodo.id);setCumuloModal(null);
-  };
-
-  /* ── mkPer ── */
-  const mkPer = () => {
-    const tc1id=uid(), tc9id=uid();
-    return {
-      id:uid(), CausaleVariazione:"5", GiornoInizio:"", GiornoFine:"",
-      TipoImpiego:"1", TipoServizio:"4", Contratto:"RALN", Qualifica:"",
-      hasPartTime:false, TipoPartTime:"O", PercPartTime:"", RegimeFineServizio:"3",
-      ImpCPDEL:"", ContribCPDEL:"", Contrib1Perc:"", StipTabellare:"0,00", RetribAnzianita:"0,00",
-      regimeTFS:"TFS", ImpTFS:"", ContribTFS:"",
-      ImpCredito:"", ContribCredito:"",
-      CodiceCessazione:"",
-      enteVersante:[
-        {id:tc1id, TipoContributo:"1", CFAzienda:a.CFAzienda, PRGAZIENDA:a.PRGAZIENDA||"00000", Imponibile:"", Contributo:"", AnnoMeseErogazione:"", Aliquota:"2", pairedTc9:tc9id},
-        {id:tc9id, TipoContributo:"9", CFAzienda:a.CFAzienda, PRGAZIENDA:a.PRGAZIENDA||"00000", Imponibile:"", Contributo:"", AnnoMeseErogazione:"", Aliquota:"2", pairedWith:tc1id},
-      ],
-    };
-  };
-
-  /* ── Dipendenti CRUD ── */
-  const addDip=()=>{ const d={id:uid(),CFLavoratore:"",Cognome:"",Nome:"",CodiceComune:"",CAP:"",periodi:[]}; setDips(p=>[...p,d]); setXDip(d.id); setXPer(null); };
-  const removeDip=(id)=>{ setDips(p=>p.filter(d=>d.id!==id)); if(xDip===id){setXDip(null);setXPer(null);} };
-  const updDip=(id,k,v)=>setDips(p=>p.map(d=>d.id===id?{...d,[k]:v}:d));
-
-  /* ── Periodi CRUD ── */
-  const addPer=(dipId)=>{ const p=mkPer(); setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:[...d.periodi,p]}:d)); setXPer(p.id); };
-  const removePer=(dipId,perId)=>{ setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:d.periodi.filter(p=>p.id!==perId)}:d)); if(xPer===perId)setXPer(null); };
-  const updPer=(dipId,perId,k,v)=>setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:d.periodi.map(p=>{if(p.id!==perId)return p;const u={[k]:v};if(k==="ImpCPDEL")u.ImpCredito=v;return{...p,...u};})}:d));
-
-  /* ── EnteVersante CRUD ── */
-  const addEV=(dipId,perId)=>{
-    const tc1id=uid(),tc9id=uid();
-    const base={CFAzienda:a.CFAzienda,PRGAZIENDA:a.PRGAZIENDA||"00000",Imponibile:"",Contributo:"",AnnoMeseErogazione:"",Aliquota:"2"};
-    const tc1={id:tc1id,...base,TipoContributo:"1",pairedTc9:tc9id};
-    const tc9={id:tc9id,...base,TipoContributo:"9",pairedWith:tc1id};
-    setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:d.periodi.map(p=>p.id===perId?{...p,enteVersante:[...p.enteVersante,tc1,tc9]}:p)}:d));
-  };
-  const updEV=(dipId,perId,evId,k,v)=>setDips(ds=>ds.map(d=>{
-    if(d.id!==dipId)return d;
-    return{...d,periodi:d.periodi.map(p=>{
-      if(p.id!==perId)return p;
-      const upd=p.enteVersante.map(ev=>ev.id===evId?{...ev,[k]:v}:ev);
-      const ch=upd.find(ev=>ev.id===evId);
-      if(ch&&ch.TipoContributo==="1"&&ch.pairedTc9&&(k==="Imponibile"||k==="AnnoMeseErogazione"))
-        return{...p,enteVersante:upd.map(ev=>ev.id===ch.pairedTc9?{...ev,[k]:v}:ev)};
-      return{...p,enteVersante:upd};
-    })};
-  }));
-  const removeEV=(dipId,perId,evId)=>setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:d.periodi.map(p=>p.id===perId?{...p,enteVersante:p.enteVersante.filter(ev=>ev.id!==evId)}:p)}:d));
-
-  /* ── Genera ── */
-  const genera=()=>{
-    const{dips:dd,count}=deduplicateEV(dips);
-    setDupCount(count); setWarns(validateAll(dd)); setXml(buildXML(m,a,dd));
-  };
-  const scarica=()=>{
-    if(!xml)return;
-    const yymm=a.AnnoMeseDenuncia.replace("-","").slice(2)||"XXXX";
-    const blob=new Blob([xml],{type:"application/xml;charset=utf-8"});
-    const url=URL.createObjectURL(blob);
-    const l=document.createElement("a"); l.href=url; l.download=`UNIEV${yymm}.xml`; l.click(); URL.revokeObjectURL(url);
-  };
-
-  const totPer=dips.reduce((s,d)=>s+d.periodi.length,0);
-  const totEV=dips.reduce((s,d)=>s+d.periodi.reduce((ss,p)=>ss+p.enteVersante.length,0),0);
-
-  /* ── helpers congruità per singolo periodo ── */
-  const evSums=(p)=>({
-    sumImpTC1: round2(p.enteVersante.filter(e=>e.TipoContributo==="1").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
-    sumImpTC9: round2(p.enteVersante.filter(e=>e.TipoContributo==="9").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
-    sumImpTC7: round2(p.enteVersante.filter(e=>e.TipoContributo==="7").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
-    sumContribTC1: round2(p.enteVersante.filter(e=>e.TipoContributo==="1"||e.TipoContributo==="5").reduce((s,e)=>s+parseIt(e.Contributo),0)),
-  });
-  const hasWarn=(p)=>{
-    if(!p.ImpCPDEL)return false;
-    const{sumImpTC1,sumImpTC9,sumContribTC1}=evSums(p);
-    const lc=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
-    return sumImpTC1>parseIt(p.ImpCPDEL)+0.005||sumContribTC1>lc+0.005||(p.ImpCredito&&sumImpTC9>parseIt(p.ImpCredito)+0.005);
-  };
-
-  /* ════ RENDER periodo ════ */
-  const renderPer=(dip,p)=>{
-    const{sumImpTC1,sumImpTC9,sumContribTC1}=evSums(p);
-    const impCPDEL=parseIt(p.ImpCPDEL);
-    const impCred=parseIt(p.ImpCredito);
-    const limitContrib=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
-    const over171=p.ImpCPDEL&&sumImpTC1>impCPDEL+0.005;
-    const over032=p.ImpCredito&&sumImpTC9>impCred+0.005;
-    const over172=p.ImpCPDEL&&sumContribTC1>limitContrib+0.005;
-    return(
-    <div style={C.cBody}>
-      <div style={C.sub}>
-        <div style={C.subT}>Periodo e Causale</div>
-        <div style={C.row}>
-          <F label="Causale variazione" value={p.CausaleVariazione} onChange={v=>updPer(dip.id,p.id,"CausaleVariazione",v)} opts={CAUSALE} w="230px"/>
-          <F label="Giorno inizio" value={p.GiornoInizio} onChange={v=>updPer(dip.id,p.id,"GiornoInizio",v)} ph="YYYY-MM-DD" w="130px"/>
-          <F label="Giorno fine" value={p.GiornoFine} onChange={v=>updPer(dip.id,p.id,"GiornoFine",v)} ph="YYYY-MM-DD" w="130px"/>
-          <F label="Cod. cessazione" value={p.CodiceCessazione} onChange={v=>updPer(dip.id,p.id,"CodiceCessazione",v)} ph="es. 3" w="108px"/>
-        </div>
-      </div>
-
-      <div style={C.sub}>
-        <div style={C.subT}>InquadramentoLavPA</div>
-        <div style={C.row}>
-          <F label="Tipo impiego" value={p.TipoImpiego} onChange={v=>updPer(dip.id,p.id,"TipoImpiego",v)} opts={TIPO_IMPIEGO} w="198px"/>
-          <F label="Tipo servizio" value={p.TipoServizio} onChange={v=>updPer(dip.id,p.id,"TipoServizio",v)} opts={TIPO_SERVIZIO} w="178px"/>
-          <F label="Contratto" value={p.Contratto} onChange={v=>updPer(dip.id,p.id,"Contratto",v)} ph="RALN" w="86px"/>
-          <F label="Qualifica" value={p.Qualifica} onChange={v=>updPer(dip.id,p.id,"Qualifica",v)} ph="042000" w="106px"/>
-          <F label="Regime fine servizio" value={p.RegimeFineServizio} onChange={v=>updPer(dip.id,p.id,"RegimeFineServizio",v)} opts={REGIME_FS} w="178px"/>
-        </div>
-        <div style={{...C.row,alignItems:"center"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-            <input type="checkbox" checked={p.hasPartTime} onChange={e=>updPer(dip.id,p.id,"hasPartTime",e.target.checked)} style={{cursor:"pointer", transform:"translateY(0)"}}/>
-            <span style={{fontSize:"11px",color:"#7AB8D4"}}>Part-time</span>
-          </div>
-          {p.hasPartTime&&<>
-            <F label="Tipo PT" value={p.TipoPartTime} onChange={v=>updPer(dip.id,p.id,"TipoPartTime",v)} opts={TIPO_PT} w="178px"/>
-            <F label="% (es. 50000)" value={p.PercPartTime} onChange={v=>updPer(dip.id,p.id,"PercPartTime",v)} ph="50000" w="138px"/>
-          </>}
-        </div>
-      </div>
-
-      <div style={C.sub}>
-        <div style={C.subT}>GestPensionistica — CPDEL (CodGestione 2)</div>
-        <div style={C.row}>
-          <F label="Imponibile CPDEL" value={p.ImpCPDEL} onChange={v=>updPer(dip.id,p.id,"ImpCPDEL",v)} ph="0,00" w="136px"/>
-          <F label="Contributo CPDEL" value={p.ContribCPDEL} onChange={v=>updPer(dip.id,p.id,"ContribCPDEL",v)} ph="0,00" w="136px"/>
-          <F label="Contrib. 1%" value={p.Contrib1Perc} onChange={v=>updPer(dip.id,p.id,"Contrib1Perc",v)} ph="0,00" w="96px"/>
-          <F label="Stipendio tabellare" value={p.StipTabellare} onChange={v=>updPer(dip.id,p.id,"StipTabellare",v)} ph="0,00" w="136px"/>
-          <F label="Retrib. anzianità" value={p.RetribAnzianita} onChange={v=>updPer(dip.id,p.id,"RetribAnzianita",v)} ph="0,00" w="126px"/>
-        </div>
-      </div>
-
-      <div style={C.sub}>
-        <div style={C.subT}>GestPrevidenziale — TFS / TFR (CodGestione 6)</div>
-        <div style={C.row}>
-          <F label="Regime" value={p.regimeTFS} onChange={v=>updPer(dip.id,p.id,"regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="146px"/>
-          <F label={`Imponibile ${p.regimeTFS}`} value={p.ImpTFS} onChange={v=>updPer(dip.id,p.id,"ImpTFS",v)} ph="0,00" w="136px"/>
-          <F label={`Contributo ${p.regimeTFS}`} value={p.ContribTFS} onChange={v=>updPer(dip.id,p.id,"ContribTFS",v)} ph="0,00" w="136px"/>
-        </div>
-      </div>
-
-      <div style={C.sub}>
-        <div style={C.subT}>GestCredito — Fondo Credito (CodGestione 9)</div>
-        <div style={C.row}>
-          <F label="Imponibile credito" value={p.ImpCredito} onChange={v=>updPer(dip.id,p.id,"ImpCredito",v)} ph="0,00" w="136px"
-            green={!!p.ImpCredito&&p.ImpCredito===p.ImpCPDEL} note={p.ImpCredito&&p.ImpCredito===p.ImpCPDEL?"↔ CPDEL":""}/>
-          <F label="Contributo credito" value={p.ContribCredito} onChange={v=>updPer(dip.id,p.id,"ContribCredito",v)} ph="0,00" w="136px"/>
-        </div>
-      </div>
-
-      {/* EnteVersante */}
-      <div style={C.sub}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"7px"}}>
-          <div style={C.subT}>Lista Contributi — Ente Versante ({p.enteVersante.length} righe)</div>
-          <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
-            <span style={{fontSize:"9px",color:"#1A5A38"}}>+Riga = coppia TC1+TC9</span>
-            <button style={C.btn()} onClick={()=>addEV(dip.id,p.id)}>+ Riga</button>
-          </div>
-        </div>
-        <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-            <thead>
-              <tr>
-                <th style={C.th}>TC</th>
-                <th style={C.th}>CF Azienda</th>
-                <th style={C.th}>PRGAZIENDA</th>
-                <th style={C.th}>Imponibile</th>
-                <th style={C.th}>Contributo</th>
-                <th style={C.th}>AnnoMese Erog.</th>
-                <th style={C.th}>Al.</th>
-                <th style={C.th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {p.enteVersante.map(ev=>{
-                const isSyncedTc9=ev.pairedWith&&p.enteVersante.find(e=>e.id===ev.pairedWith)?.TipoContributo==="1";
-                const bg=ev.TipoContributo==="1"?"#071A0E":isSyncedTc9?"#040E08":"transparent";
-                return(
-                  <tr key={ev.id} style={{background:bg}}>
-                    <td style={C.td}><select style={{...C.sel,width:"92px",fontSize:"10px"}} value={ev.TipoContributo} onChange={e=>updEV(dip.id,p.id,ev.id,"TipoContributo",e.target.value)}>{TC_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select></td>
-                    <td style={C.td}><input style={{...C.inp,width:"108px"}} value={ev.CFAzienda} onChange={e=>updEV(dip.id,p.id,ev.id,"CFAzienda",e.target.value)}/></td>
-                    <td style={C.td}><input style={{...C.inp,width:"58px"}} value={ev.PRGAZIENDA} onChange={e=>updEV(dip.id,p.id,ev.id,"PRGAZIENDA",e.target.value)}/></td>
-                    <td style={C.td}><input style={{...(isSyncedTc9?C.inpG:C.inp),width:"78px"}} value={ev.Imponibile} onChange={e=>updEV(dip.id,p.id,ev.id,"Imponibile",e.target.value)} placeholder="0,00"/></td>
-                    <td style={C.td}><input style={{...C.inp,width:"78px"}} value={ev.Contributo} onChange={e=>updEV(dip.id,p.id,ev.id,"Contributo",e.target.value)} placeholder="0,00"/></td>
-                    <td style={C.td}><input style={{...(isSyncedTc9?C.inpG:C.inp),width:"76px"}} value={ev.AnnoMeseErogazione} onChange={e=>updEV(dip.id,p.id,ev.id,"AnnoMeseErogazione",e.target.value)} placeholder="YYYY-MM"/></td>
-                    <td style={C.td}><input style={{...C.inp,width:"34px"}} value={ev.Aliquota} onChange={e=>updEV(dip.id,p.id,ev.id,"Aliquota",e.target.value)}/></td>
-                    <td style={C.td}><button style={C.btn("x")} onClick={()=>removeEV(dip.id,p.id,ev.id)}>✕</button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {p.ImpCPDEL&&(
-          <div style={{marginTop:"9px",background:"#050D1A",border:"1px solid #112840",borderRadius:"5px",overflow:"hidden"}}>
-            <div style={{background:"#070F1E",padding:"5px 9px",fontSize:"9px",fontWeight:"700",color:"#007A9E",textTransform:"uppercase",letterSpacing:"1px"}}>
-              Verifica Congruità Somme EV — confronto in tempo reale
-            </div>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-              <thead>
-                <tr>
-                  <th style={C.th}>Controllo INPS</th>
-                  <th style={{...C.th,textAlign:"right"}}>Σ EV</th>
-                  <th style={{...C.th,textAlign:"right"}}>Limite gestione</th>
-                  <th style={{...C.th,textAlign:"right"}}>Differenza</th>
-                  <th style={C.th}>Esito</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* 00171I */}
-                <tr style={C.sumRow(over171?"over":under171?"under":"ok")}>
-                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over171?"#FCA5A5":under171?"#FDE68A":"#4ADE80"}}>00171I</span> Σ Imponibile TC1</td>
-                  <td style={{...C.tdR,color:over171?"#FCA5A5":under171?"#FDE68A":"#86EFAC",fontWeight:"700"}}>{toIt(String(sumImpTC1))}</td>
-                  <td style={{...C.tdR,color:"#7AB8D4"}}>{toIt(p.ImpCPDEL)}</td>
-                  <td style={{...C.tdR,color:over171?"#EF4444":under171?"#F59E0B":"#4ADE80",fontWeight:"700"}}>{toIt(String(round2(sumImpTC1-impCPDEL)))}</td>
-                  <td style={C.td}>{over171?<span style={{color:"#EF4444",fontWeight:"700"}}>⚠ ECCESSO</span>:under171?<span style={{color:"#F59E0B",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#4ADE80"}}>✓ OK</span>}</td>
-                </tr>
-                {/* 00032I */}
-                {p.ImpCredito&&(
-                  <tr style={C.sumRow(over032?"over":under032?"under":"ok")}>
-                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032?"#FCA5A5":under032?"#FDE68A":"#4ADE80"}}>00032I</span> Σ Imponibile TC9</td>
-                    <td style={{...C.tdR,color:over032?"#FCA5A5":under032?"#FDE68A":"#86EFAC",fontWeight:"700"}}>{toIt(String(sumImpTC9))}</td>
-                    <td style={{...C.tdR,color:"#7AB8D4"}}>{toIt(p.ImpCredito)}</td>
-                    <td style={{...C.tdR,color:over032?"#EF4444":under032?"#F59E0B":"#4ADE80",fontWeight:"700"}}>{toIt(String(round2(sumImpTC9-impCred)))}</td>
-                    <td style={C.td}>{over032?<span style={{color:"#EF4444",fontWeight:"700"}}>⚠ ECCESSO</span>:under032?<span style={{color:"#F59E0B",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#4ADE80"}}>✓ OK</span>}</td>
-                  </tr>
-                )}
-                {/* 00172I */}
-                <tr style={C.sumRow(over172?"over":under172?"under":"ok")}>
-                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#FCA5A5":under172?"#FDE68A":"#4ADE80"}}>00172I</span> Σ Contributo TC1+TC5</td>
-                  <td style={{...C.tdR,color:over172?"#FCA5A5":under172?"#FDE68A":"#86EFAC",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
-                  <td style={{...C.tdR,color:"#7AB8D4"}}>{toIt(String(limitContrib))} (CPDEL+1%)</td>
-                  <td style={{...C.tdR,color:over172?"#EF4444":under172?"#F59E0B":"#4ADE80",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
-                  <td style={C.td}>{over172?<span style={{color:"#EF4444",fontWeight:"700"}}>⚠ ECCESSO</span>:under172?<span style={{color:"#F59E0B",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#4ADE80"}}>✓ OK</span>}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div style={{fontSize:"11px",color:"#A9C0CF",padding:"7px 11px"}}>
-              Valori negativi = margine residuo. Valori positivi = eccesso da correggere prima del passaggio al sw INPS.
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );};
-
-  /* ════ RENDER dipendente ════ */
-  const renderDip=(dip)=>(
-    <div style={C.cBody}>
-      <div style={C.sub}>
-        <div style={C.subT}>Anagrafica Lavoratore (D0)</div>
-        <div style={C.row}>
-          <F label="Codice Fiscale" value={dip.CFLavoratore} onChange={v=>updDip(dip.id,"CFLavoratore",v)} ph="XYZABC00X00X000X" w="176px"/>
-          <F label="Cognome" value={dip.Cognome} onChange={v=>updDip(dip.id,"Cognome",v)} w="146px"/>
-          <F label="Nome" value={dip.Nome} onChange={v=>updDip(dip.id,"Nome",v)} w="126px"/>
-          <F label="Codice Comune" value={dip.CodiceComune} onChange={v=>updDip(dip.id,"CodiceComune",v)} ph="F943" w="126px"/>
-          <F label="CAP" value={dip.CAP} onChange={v=>updDip(dip.id,"CAP",v)} ph="96017" w="70px"/>
-        </div>
-      </div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"7px"}}>
-        <span style={{...C.subT,marginBottom:0}}>V1 — {dip.periodi.length} periodo{dip.periodi.length!==1?"i":""}</span>
-        <div style={{display:"flex",gap:"6px"}}>
-          <button style={C.btn("p")} onClick={()=>addPer(dip.id)}>+ Aggiungi periodo V1</button>
-          <button style={{...C.btn("cum"),padding:"4px 11px"}} onClick={()=>openCumulo(dip.id)}>∑ Cumulo mensilità</button>
-        </div>
-      </div>
-      {dip.periodi.length===0&&<div style={C.empty}>Nessun periodo V1.</div>}
-      {dip.periodi.map(p=>(
-        <div key={p.id} style={C.card}>
-          <div style={C.cHdr} onClick={()=>setXPer(xPer===p.id?null:p.id)}>
-            <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-              <span style={C.bdg("#00AEEF")}>caus.{p.CausaleVariazione}</span>
-              <span style={{...C.mono,color:"#7AB8D4"}}>{p.GiornoInizio||"???"} → {p.GiornoFine||"???"}</span>
-              <span style={{...C.bdg("#10B981"),fontSize:"9px"}}>{p.enteVersante.length} EV</span>
-              {p.CodiceCessazione&&<span style={{...C.bdg("#D97706"),fontSize:"9px"}}>cess.{p.CodiceCessazione}</span>}
-              {hasWarn(p)&&<span style={{...C.bdg("#EF4444"),fontSize:"9px"}}>⚠ CONGRUITÀ</span>}
-            </div>
-            <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
-              <span style={{fontSize:"10px",color:xPer===p.id?"#00AEEF":"#1E3A58"}}>{xPer===p.id?"▲":"▼"}</span>
-              <button style={C.btn("x")} onClick={e=>{e.stopPropagation();removePer(dip.id,p.id);}}>✕</button>
-            </div>
-          </div>
-          {xPer===p.id&&renderPer(dip,p)}
-        </div>
-      ))}
-    </div>
-  );
-
-  /* ════ MAIN RENDER ════ */
-  return(
-    <div style={C.app}>
-
-      {/* ════ MODALE CUMULO MENSILITÀ ════ */}
-      {cumuloModal&&(()=>{
-        const{step,inq,yearRows,evGrid}=cumuloModal;
-        const months=buildMonthList(inq.dateFrom,inq.dateTo);
-        const hasTFS=evGrid.some(r=>parseIt(r.tc7Imp)>0);
-        const hasC1=evGrid.some(r=>parseIt(r.tc6Cont)>0);
-        const hasSol=evGrid.some(r=>parseIt(r.tcSCont)>0);
-
-        const stepBar=(
-          <div style={{display:"flex",gap:"5px",marginBottom:"13px"}}>
-            {["1. Periodo e Inquadramento","2. Totali per anno","3. Griglia EV — verifica e conferma"].map((t,i)=>(
-              <div key={i} style={{flex:1,padding:"5px 8px",borderRadius:"5px",fontSize:"10px",fontWeight:"700",
-                background:step===i+1?"#2E1860":step>i+1?"#053A18":"#0C1520",
-                color:step===i+1?"#C4B5FD":step>i+1?"#4ADE80":"#2A4060",
-                borderBottom:step===i+1?"2px solid #8B5CF6":step>i+1?"2px solid #16803A":"2px solid transparent"}}>
-                {t}
-              </div>
-            ))}
-          </div>
-        );
-
-        /* ────── STEP 1 ────── */
-        const step1=(
-          <>
-            {stepBar}
-            <div style={C.sub}>
-              <div style={C.subT}>Periodo</div>
-              <div style={C.row}>
-                <F label="Dal (GiornoInizio)" value={inq.dateFrom} onChange={v=>setInq("dateFrom",v)} ph="YYYY-MM-DD" w="148px"/>
-                <F label="Al (GiornoFine)" value={inq.dateTo} onChange={v=>setInq("dateTo",v)} ph="YYYY-MM-DD" w="148px"/>
-                <F label="Cod. cessazione" value={inq.CodiceCessazione} onChange={v=>setInq("CodiceCessazione",v)} ph="es. 3" w="108px"/>
-              </div>
-              {inq.dateFrom&&inq.dateTo&&inq.dateFrom<=inq.dateTo&&(()=>{
-                const ml=buildMonthList(inq.dateFrom,inq.dateTo);
-                const yrs=[...new Set(ml.map(m=>m.year))];
-                return <div style={{fontSize:"10px",color:"#60a080",marginTop:"2px"}}>
-                  {ml.length} mesi · {yrs.length} anno{yrs.length>1?"i":""}: {yrs.join(", ")} · {yrs.map(y=>{const ym=ml.filter(m=>m.year===y);return `${y}: ÷${annoDivisor(ym)}`;}).join(" | ")}
-                </div>;
-              })()}
-            </div>
-            <div style={C.sub}>
-              <div style={C.subT}>InquadramentoLavPA</div>
-              <div style={C.row}>
-                <F label="Tipo impiego" value={inq.TipoImpiego} onChange={v=>setInq("TipoImpiego",v)} opts={TIPO_IMPIEGO} w="196px"/>
-                <F label="Tipo servizio" value={inq.TipoServizio} onChange={v=>setInq("TipoServizio",v)} opts={TIPO_SERVIZIO} w="176px"/>
-                <F label="Contratto" value={inq.Contratto} onChange={v=>setInq("Contratto",v)} ph="RALN" w="86px"/>
-                <F label="Qualifica" value={inq.Qualifica} onChange={v=>setInq("Qualifica",v)} ph="042000" w="106px"/>
-                <F label="Regime FS" value={inq.RegimeFineServizio} onChange={v=>setInq("RegimeFineServizio",v)} opts={REGIME_FS} w="176px"/>
-              </div>
-              <div style={{...C.row,alignItems:"center"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                  <input type="checkbox" checked={inq.hasPartTime} onChange={e=>setInq("hasPartTime",e.target.checked)} style={{cursor:"pointer", transform:"translateY(0)"}}/>
-                  <span style={{fontSize:"11px",color:"#7AB8D4"}}>Part-time</span>                </div>
-                {inq.hasPartTime&&<>
-                  <F label="Tipo PT" value={inq.TipoPartTime} onChange={v=>setInq("TipoPartTime",v)} opts={TIPO_PT} w="176px"/>
-                  <F label="% (es. 50000)" value={inq.PercPartTime} onChange={v=>setInq("PercPartTime",v)} ph="50000" w="136px"/>
-                </>}
-              </div>
-              <div style={C.row}>
-                <F label="Regime TFS/TFR" value={inq.regimeTFS||"TFS"} onChange={v=>setInq("regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="156px"/>
-                <F label="Stipendio tabellare" value={inq.StipTabellare} onChange={v=>setInq("StipTabellare",v)} ph="0,00" w="136px"/>
-                <F label="Retrib. anzianità" value={inq.RetribAnzianita} onChange={v=>setInq("RetribAnzianita",v)} ph="0,00" w="136px"/>
-              </div>
-            </div>
-            <div style={{fontSize:"9px",color:"#2A4A64",padding:"4px 0"}}>Causale V1: 5 (fissa) · CF Azienda ed EnteVersante presi dall'intestazione corrente: <strong style={{color:"#4A8A9C"}}>{a.CFAzienda||"—"}</strong></div>
-            <div style={{display:"flex",gap:"8px",justifyContent:"flex-end",marginTop:"8px"}}>
-              <button style={C.btn()} onClick={()=>setCumuloModal(null)}>Annulla</button>
-              <button style={{...C.btn("p"),opacity:(!inq.dateFrom||!inq.dateTo||inq.dateFrom>inq.dateTo)?0.4:1}}
-                disabled={!inq.dateFrom||!inq.dateTo||inq.dateFrom>inq.dateTo}
-                onClick={cumuloStep2}>Avanti →</button>
-            </div>
-          </>
-        );
-
-        /* ────── STEP 2 ────── */
-        const step2=(
-          <>
-            {stepBar}
-            <div style={{fontSize:"10px",color:"#4A7A60",marginBottom:"8px"}}>
-              Periodo: <strong style={{color:"#6EC99E"}}>{inq.dateFrom}</strong> → <strong style={{color:"#6EC99E"}}>{inq.dateTo}</strong> · {months.length} mesi · Causale 5 (fissa)
-            </div>
-            <div style={{overflowY:"auto",maxHeight:"52vh"}}>
-              {yearRows.map(yr=>(
-                <div key={yr.anno} style={{...C.sub,marginBottom:"10px"}}>
-                  <div style={{...C.subT,fontSize:"10px",color:"#6EC99E",display:"flex",gap:"8px",alignItems:"center"}}>
-                    <span>Anno {yr.anno}</span>
-                    <span style={{color:"#2E5040"}}>{MESI_IT[yr.meseFrom]} → {MESI_IT[yr.meseTo]}</span>
-                    <span style={{background:"#122434",padding:"2px 8px",borderRadius:"9999px",color:"#3A8090",fontSize:"9px"}}>
-                      ÷{yr.divisor}{yr.divisor===13?" (annualità intera, dic=doppio)":` (${yr.meseTo-yr.meseFrom+1} mesi)`}
-                    </span>
-                  </div>
-                  <div style={C.row}>
-                    <F label="Imp. CPDEL totale" value={yr.ImpCPDEL} onChange={v=>setYr(yr.anno,"ImpCPDEL",v)} ph="0,00" w="148px"/>
-                    <F label="Contrib. CPDEL totale" value={yr.ContribCPDEL} onChange={v=>setYr(yr.anno,"ContribCPDEL",v)} ph="0,00" w="148px"/>
-                    <F label="Contrib. 1% totale" value={yr.Contrib1Perc} onChange={v=>setYr(yr.anno,"Contrib1Perc",v)} ph="0,00 (opz.)" w="128px"/>
-                    <F label="Stip. tabellare" value={yr.StipTabellare} onChange={v=>setYr(yr.anno,"StipTabellare",v)} ph="0,00" w="118px"/>
-                    <F label="Retrib. anzianità" value={yr.RetribAnzianita} onChange={v=>setYr(yr.anno,"RetribAnzianita",v)} ph="0,00" w="118px"/>
-                  </div>
-                  <div style={C.row}>
-                    <F label={`Imp. ${inq.regimeTFS||"TFS"} totale`} value={yr.ImpTFS} onChange={v=>setYr(yr.anno,"ImpTFS",v)} ph="0,00 (opz.)" w="148px"/>
-                    <F label={`Contrib. ${inq.regimeTFS||"TFS"} totale`} value={yr.ContribTFS} onChange={v=>setYr(yr.anno,"ContribTFS",v)} ph="0,00 (opz.)" w="148px"/>
-                    <F label="Contrib. Credito totale" value={yr.ContribCredito} onChange={v=>setYr(yr.anno,"ContribCredito",v)} ph="0,00" w="148px"/>
-                    <F label="Solidarietà L166/91 Imp." value={yr.ImpSol} onChange={v=>setYr(yr.anno,"ImpSol",v)} ph="0,00 (opz.)" w="148px"/>
-                    <F label="Solidarietà L166/91 Contrib." value={yr.ContribSol} onChange={v=>setYr(yr.anno,"ContribSol",v)} ph="0,00 (opz.)" w="148px"/>
-                  </div>
-                  <div style={{fontSize:"9px",color:"#1A4830"}}>Imponibile Credito = Imponibile CPDEL (auto). Residuo di arrotondamento → ultima mensilità.</div>
-                </div>
-              ))}
-            </div>
-            <div style={{display:"flex",gap:"8px",justifyContent:"flex-end",marginTop:"8px"}}>
-              <button style={C.btn()} onClick={()=>setCumuloModal(null)}>Annulla</button>
-              <button style={C.btn()} onClick={()=>setCumuloModal(p=>({...p,step:1}))}>← Indietro</button>
-              <button style={C.btn("p")} onClick={cumuloStep3}>Genera Griglia EV →</button>
-            </div>
-          </>
-        );
-
-        /* ────── STEP 3 ────── */
-        const years=[...new Set(evGrid.map(r=>r.year))];
-        const colA={...C.th,textAlign:"right",fontSize:"9px"};
-        const sumYr=(yr,key)=>round2(evGrid.filter(r=>r.year===yr).reduce((s,r)=>s+parseIt(r[key]),0));
-        const sumTot=key=>round2(evGrid.reduce((s,r)=>s+parseIt(r[key]),0));
-        const yrRef=(anno,key)=>yearRows.find(r=>r.anno===anno)?.[key]||"";
-        const tdEd=(id,k,v,green=false)=>(
-          <td style={C.td}>
-            <input style={{...(green?C.inpG:C.inp),width:"72px",fontSize:"10px"}}
-              value={v} onChange={e=>setEVCell(id,k,e.target.value)} placeholder="0,00"/>
-          </td>
-        );
-        const step3=(
-          <>
-            {stepBar}
-            <div style={{fontSize:"10px",color:"#4A7A60",marginBottom:"7px",display:"flex",gap:"12px",alignItems:"center"}}>
-              <span>{evGrid.length} righe mese · {evGrid.length*2}{hasTFS?"+TFS":""}{hasC1?"+1%":""}{hasSol?"+Sol":""} EV totali generate</span>
-              <span style={{color:"#1E5040"}}>Celle verdi = auto-sync con TC1 Imponibile (editabili)</span>
-            </div>
-            <div style={{overflowX:"auto",overflowY:"auto",maxHeight:"50vh",border:"1px solid #17304A",borderRadius:"5px"}}>
-              <table style={{borderCollapse:"collapse",fontSize:"10px",minWidth:"100%"}}>
-                <thead>
-                  <tr>
-                    <th style={{...C.th,position:"sticky",left:0,zIndex:2}}>Mese</th>
-                    <th style={colA}>TC1 Imp</th><th style={colA}>TC1 Cont</th>
-                    <th style={{...colA,color:"#1E7048"}}>TC9 Imp</th><th style={colA}>TC9 Cont</th>
-                    {hasTFS&&<><th style={colA}>TC7 Imp</th><th style={colA}>TC7 Cont</th></>}
-                    {hasC1&&<><th style={{...colA,color:"#1E4870"}}>TC6 Imp</th><th style={colA}>TC6 Cont</th></>}
-                    {hasSol&&<><th style={{...colA,color:"#4A4818"}}>Sol Imp</th><th style={colA}>Sol Cont</th></>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {years.map(yr=>{
-                    const yrRows=evGrid.filter(r=>r.year===yr);
-                    const ref=yearRows.find(r=>r.anno===yr)||{};
-                    const s1i=sumYr(yr,"tc1Imp"),s1c=sumYr(yr,"tc1Cont");
-                    const s9i=sumYr(yr,"tc9Imp"),s9c=sumYr(yr,"tc9Cont");
-                    const s7i=sumYr(yr,"tc7Imp"),s7c=sumYr(yr,"tc7Cont");
-                    const s6i=sumYr(yr,"tc6Imp"),s6c=sumYr(yr,"tc6Cont");
-                    const ssi=sumYr(yr,"tcSImp"),ssc=sumYr(yr,"tcSCont");
-                    const ok1i=!parseIt(ref.ImpCPDEL)||Math.abs(s1i-parseIt(ref.ImpCPDEL))<=0.005;
-                    const ok1c=!parseIt(ref.ContribCPDEL)||Math.abs(s1c-parseIt(ref.ContribCPDEL))<=0.005;
-                    return[
-                      <tr key={`yh-${yr}`} style={{background:"#060D18"}}>
-                        <td colSpan={4+(hasTFS?2:0)+(hasC1?2:0)+(hasSol?2:0)+2}
-                          style={{padding:"4px 8px",color:"#2E6078",fontWeight:"700",fontSize:"10px",letterSpacing:"0.5px"}}>
-                          ── {yr} ── ÷{annoDivisor(yrRows)} {annoDivisor(yrRows)===13?"(annualità intera)":"(parziale)"}
-                        </td>
-                      </tr>,
-                      ...yrRows.map(row=>(
-                        <tr key={row.id} style={{background:row.isDec?"#091808":"transparent"}}>
-                          <td style={{...C.td,position:"sticky",left:0,background:row.isDec?"#091808":"#0C1520",
-                            color:row.isDec?"#4ADE80":"#7AB8D4",fontFamily:"monospace",fontSize:"10px",whiteSpace:"nowrap",minWidth:"76px"}}>
-                            {row.annoMese}{row.isDec?" ×2":""}
-                          </td>
-                          {tdEd(row.id,"tc1Imp",row.tc1Imp)}
-                          {tdEd(row.id,"tc1Cont",row.tc1Cont)}
-                          {tdEd(row.id,"tc9Imp",row.tc9Imp,row.tc9Imp===row.tc1Imp)}
-                          {tdEd(row.id,"tc9Cont",row.tc9Cont)}
-                          {hasTFS&&<>{tdEd(row.id,"tc7Imp",row.tc7Imp)}{tdEd(row.id,"tc7Cont",row.tc7Cont)}</>}
-                          {hasC1&&<>{tdEd(row.id,"tc6Imp",row.tc6Imp,row.tc6Imp===row.tc1Imp)}{tdEd(row.id,"tc6Cont",row.tc6Cont)}</>}
-                          {hasSol&&<>{tdEd(row.id,"tcSImp",row.tcSImp,row.tcSImp===row.tc1Imp)}{tdEd(row.id,"tcSCont",row.tcSCont)}</>}
-                        </tr>
-                      )),
-                      <tr key={`ys-${yr}`} style={{background:ok1i&&ok1c?"#051A0C":"#200808",fontWeight:"700"}}>
-                        <td style={{...C.td,color:"#3A8060",fontSize:"9px",fontFamily:"monospace",position:"sticky",left:0,background:"inherit"}}>Σ {yr}</td>
-                        <td style={{...C.tdR,color:ok1i?"#4ADE80":"#EF4444",fontSize:"10px"}}>{toIt(String(s1i))}</td>
-                        <td style={{...C.tdR,color:ok1c?"#4ADE80":"#EF4444",fontSize:"10px"}}>{toIt(String(s1c))}</td>
-                        <td style={{...C.tdR,color:"#3A8060",fontSize:"10px"}}>{toIt(String(s9i))}</td>
-                        <td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(s9c))}</td>
-                        {hasTFS&&<><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(s7i))}</td><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(s7c))}</td></>}
-                        {hasC1&&<><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(s6i))}</td><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(s6c))}</td></>}
-                        {hasSol&&<><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(ssi))}</td><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(ssc))}</td></>}
-                      </tr>,
-                      (!ok1i||!ok1c)&&<tr key={`yw-${yr}`} style={{background:"#1A0808"}}>
-                        <td colSpan={4+(hasTFS?2:0)+(hasC1?2:0)+(hasSol?2:0)+2} style={{padding:"3px 8px",color:"#FCA5A5",fontSize:"9px"}}>
-                          ⚠ {!ok1i?`TC1 Imp Σ ${toIt(String(s1i))} ≠ ${toIt(ref.ImpCPDEL||"0,00")} (diff ${toIt(String(round2(s1i-parseIt(ref.ImpCPDEL))))})`:""}
-                          {!ok1c?` | TC1 Cont Σ ${toIt(String(s1c))} ≠ ${toIt(ref.ContribCPDEL||"0,00")}`:""}
-                        </td>
-                      </tr>
-                    ].filter(Boolean);
-                  })}
-                  {years.length>1&&(
-                    <tr style={{background:"#060D18",fontWeight:"700",borderTop:"2px solid #17304A"}}>
-                      <td style={{...C.td,color:"#00AEEF",fontSize:"13px",position:"sticky",left:0,background:"#15222F"}}>TOTALE</td>
-                      <td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc1Imp")))}</td>
-                      <td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc1Cont")))}</td>
-                      <td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc9Imp")))}</td>
-                      <td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc9Cont")))}</td>
-                      {hasTFS&&<><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc7Imp")))}</td><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc7Cont")))}</td></>}
-                      {hasC1&&<><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc6Imp")))}</td><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc6Cont")))}</td></>}
-                      {hasSol&&<><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tcSImp")))}</td><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tcSCont")))}</td></>}
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div style={{fontSize:"9px",color:"#1E4A38",marginTop:"5px"}}>
-              Dicembre ×2 = doppio importo (annualità intera). Righe Σ verdi = congruenti con input. Rosse = scostamento da correggere. Tutti i campi sono editabili.
-            </div>
-            <div style={{display:"flex",gap:"8px",justifyContent:"flex-end",marginTop:"8px"}}>
-              <button style={C.btn()} onClick={()=>setCumuloModal(null)}>Annulla</button>
-              <button style={C.btn()} onClick={()=>setCumuloModal(p=>({...p,step:2}))}>← Rivedi totali</button>
-              <button style={{...C.btn("s"),padding:"5px 16px",fontSize:"13px"}} onClick={confirmCumulo}>✓ Conferma e aggiungi V1</button>
-            </div>
-          </>
-        );
-
-        return(
-          <div style={C.modal}>
-            <div style={{...C.modalBox,maxWidth:"940px",width:"96%",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
-              <div style={{marginBottom:"11px",flexShrink:0}}>
-                <div style={{fontSize:"15px",fontWeight:"700",color:"#C4B5FD",marginBottom:"3px",letterSpacing:"-0.01em"}}>∑ Cumulo Mensilità</div>
-                <div style={{fontSize:"10px",color:"#4A3870"}}>
-                  Causale 5 fissa · Distribuzione automatica su annualità (÷13 dicembre doppio) o periodo parziale (÷N mesi) · Residuo → ultima mensilità
-                </div>
-              </div>
-              <div style={{overflowY:"auto",flex:1}}>
-                {step===1&&step1}
-                {step===2&&step2}
-                {step===3&&step3}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* ════ MODALE IMPORT ════ */}
-      {importModal&&(
-        <div style={C.modal}>
-          <div style={{...C.modalBox,maxWidth:"620px",width:"94%",maxHeight:"85vh",display:"flex",flexDirection:"column"}}>
-            <div style={{marginBottom:"12px"}}>
-              <div style={{fontSize:"15px",fontWeight:"700",color:"#86EFAC",marginBottom:"4px",letterSpacing:"-0.01em"}}>Importa XML</div>
-              <div style={{fontSize:"11px",color:"#3A7060",lineHeight:"1.6"}}>
-                <strong style={{color:"#6EE7C4"}}>{importModal.azienda.RagSocAzienda || importModal.azienda.CFAzienda}</strong>
-                {" "}· {importModal.azienda.AnnoMeseDenuncia}
-                {" "}· {importModal.isVariazione ? "Flusso VARIAZIONE" : "Flusso STANDARD"}
-                {" "}· {importModal.workers.length} dipendente{importModal.workers.length!==1?"i":""} trovato{importModal.workers.length!==1?"i":""}
-              </div>
-            </div>
-
-            {/* Errori/warning */}
-            {importModal.errors.length>0&&(
-              <div style={{background:"#151000",border:"1px solid #5A4200",borderRadius:"5px",padding:"7px 10px",marginBottom:"10px",fontSize:"10px",color:"#FDE68A",lineHeight:"1.6",flexShrink:0}}>
-                <strong>⚠ Avvisi import ({importModal.errors.length}):</strong><br/>
-                {importModal.errors.map((e,i)=><span key={i}>{e}<br/></span>)}
-              </div>
-            )}
-
-            {/* Lista dipendenti selezionabili */}
-            <div style={{fontSize:"10px",color:"#2E6050",marginBottom:"6px",flexShrink:0}}>
-              Seleziona i dipendenti da importare:
-              <button style={{...C.btn(),marginLeft:"8px",fontSize:"9px",padding:"2px 7px"}}
-                onClick={()=>setImportModal(p=>({...p,selected:new Set(p.workers.map(w=>w.id))}))}>
-                Tutti
-              </button>
-              <button style={{...C.btn(),marginLeft:"4px",fontSize:"9px",padding:"2px 7px"}}
-                onClick={()=>setImportModal(p=>({...p,selected:new Set()}))}>
-                Nessuno
-              </button>
-            </div>
-            <div style={{overflowY:"auto",flex:1,marginBottom:"12px",border:"1px solid #17304A",borderRadius:"5px"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                <thead>
-                  <tr>
-                    <th style={{...C.th,width:"28px"}}></th>
-                    <th style={C.th}>CF Lavoratore</th>
-                    <th style={C.th}>Cognome</th>
-                    <th style={C.th}>Nome</th>
-                    <th style={C.th}>Comune</th>
-                    <th style={C.th}>Periodi</th>
-                    <th style={C.th}>EV</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {importModal.workers.map(w=>{
-                    const sel=importModal.selected.has(w.id);
-                    const totEVw=w.periodi.reduce((s,p)=>s+p.enteVersante.length,0);
-                    return(
-                      <tr key={w.id} style={{background:sel?"#061812":"transparent",cursor:"pointer"}}
-                        onClick={()=>setImportModal(p=>{
-                          const s=new Set(p.selected);
-                          sel?s.delete(w.id):s.add(w.id);
-                          return{...p,selected:s};
-                        })}>
-                        <td style={{...C.td,textAlign:"center"}}>
-                          <input type="checkbox" readOnly checked={sel} style={{cursor:"pointer", transform:"translateY(0)"}}/>
-                        </td>
-                        <td style={{...C.td,fontFamily:"monospace",fontSize:"11px",color:sel?"#86EFAC":"#3A7060"}}>{w.CFLavoratore||"—"}</td>
-                        <td style={{...C.td,color:sel?"#A7F3D0":"#4A8A70"}}>{w.Cognome||"—"}</td>
-                        <td style={{...C.td,color:sel?"#A7F3D0":"#4A8A70"}}>{w.Nome||"—"}</td>
-                        <td style={{...C.td,color:"#3A7060"}}>{w.CodiceComune||"—"}</td>
-                        <td style={{...C.td,textAlign:"center",...C.bdg("#10B981")}}>{w.periodi.length}</td>
-                        <td style={{...C.td,textAlign:"center",...C.bdg("#0D9488")}}>{totEVw}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {!importModal.isVariazione&&(
-              <div style={{fontSize:"10px",color:"#2E5848",marginBottom:"10px",padding:"6px 9px",background:"#050E0C",border:"1px solid #0E2A22",borderRadius:"5px",flexShrink:0}}>
-                File standard (non variazione): periodi E0 importati come V1 causale 5. EnteVersante pre-compilata con coppia TC1+TC9 vuota.
-              </div>
-            )}
-
-            {/* Pulsanti azione */}
-            <div style={{display:"flex",gap:"8px",justifyContent:"flex-end",flexShrink:0,flexWrap:"wrap"}}>
-              <button style={C.btn()} onClick={()=>setImportModal(null)}>Annulla</button>
-              <button
-                style={{...C.btn("p"),padding:"5px 14px",opacity:importModal.selected.size===0?0.4:1}}
-                disabled={importModal.selected.size===0}
-                onClick={()=>doImport("merge")}>
-                Aggiungi ai dati correnti ({importModal.selected.size})
-              </button>
-              <button
-                style={{...C.btn("s"),padding:"5px 14px",opacity:importModal.selected.size===0?0.4:1}}
-                disabled={importModal.selected.size===0}
-                onClick={()=>doImport("replace")}>
-                Sostituisci lavorazione ({importModal.selected.size})
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ════ MODALE RESET ════ */}
-      {showReset&&(
-        <div style={C.modal}>
-          <div style={C.modalBox}>
-            <div style={{fontSize:"15px",fontWeight:"700",color:"#FCA5A5",marginBottom:"10px",letterSpacing:"-0.01em"}}>Nuova Lavorazione</div>
-            <div style={{fontSize:"13px",color:"#C8B090",marginBottom:"18px",lineHeight:"1.65"}}>
-              Tutti i dati correnti (intestazione, dipendenti, periodi V1, EnteVersante) verranno cancellati.<br/>
-              L'operazione non è reversibile.
-            </div>
-            <div style={{display:"flex",gap:"10px",justifyContent:"flex-end"}}>
-              <button style={C.btn()} onClick={()=>setShowReset(false)}>Annulla</button>
-              <button style={{...C.btn("x"),padding:"6px 18px",fontSize:"13px"}} onClick={doReset}>Conferma reset</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div style={C.hdr}>
-        <div>
-          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v5.1</div>
-          <div style={C.hdrS}>Fix 00124I · fix D0Key · fix AMEV · auto-sync TC1+TC9 · dedup · congruità EV real-time · PDF · Reset · Import XML · Cumulo Mensilità</div>
-        </div>
-        <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
-          <span style={{fontSize:"11px",color:"#1E3A58",fontVariantNumeric:"tabular-nums"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
-          <input ref={fileRef} type="file" accept=".xml" style={{display:"none"}} onChange={handleFileImport}/>
-          <button style={{...C.btn("imp"),padding:"5px 12px"}} onClick={()=>fileRef.current?.click()}>⬆ Importa XML</button>
-          <button style={{...C.btn("pdf"),padding:"5px 12px"}} onClick={()=>generatePDF(m,a,dips)}>⬛ PDF</button>
-          <button style={{...C.btn("w"),padding:"5px 12px"}} onClick={()=>setShowReset(true)}>↺ Nuova lavorazione</button>
-        </div>
-      </div>
-      <div style={C.tabs}>
-        {["1. Intestazione","2. Dipendenti / V1","3. Genera XML"].map((t,i)=>(
-          <button key={i} style={C.tab(tab===i)} onClick={()=>setTab(i)}>{t}</button>
-        ))}
-      </div>
-      <div style={C.body}>
-
-        {tab===0&&<>
-          <div style={C.sec}>
-            <div style={C.sT}>DatiMittente</div>
-            <div style={C.row}>
-              <F label="CF Persona Mittente" value={m.CFPersonaMittente} onChange={mf("CFPersonaMittente")} ph="CF firmatario" w="176px"/>
-              <F label="Ragione Sociale Mittente" value={m.RagSocMittente} onChange={mf("RagSocMittente")} ph="COMUNE DI ..." full/>
-            </div>
-            <div style={C.row}>
-              <F label="CF Mittente (Ente)" value={m.CFMittente} onChange={mf("CFMittente")} ph="11 cifre" w="156px"/>
-              <F label="CF Softwarehouse" value={m.CFSoftwarehouse} onChange={mf("CFSoftwarehouse")} ph="11 cifre" w="156px"/>
-              <F label="Sede INPS" value={m.SedeINPS} onChange={mf("SedeINPS")} ph="7601" w="96px"/>
-            </div>
-          </div>
-          <div style={C.sec}>
-            <div style={C.sT}>Azienda / ListaPosPA</div>
-            <div style={C.row}>
-              <F label="Anno-Mese Denuncia" value={a.AnnoMeseDenuncia} onChange={af("AnnoMeseDenuncia")} ph="YYYY-MM" w="126px"/>
-              <F label="CF Azienda" value={a.CFAzienda} onChange={af("CFAzienda")} ph="11 cifre" w="156px"/>
-              <F label="Ragione Sociale Ente" value={a.RagSocAzienda} onChange={af("RagSocAzienda")} ph="COMUNE DI ..." full/>
-            </div>
-            <div style={C.row}>
-              <F label="PRGAZIENDA" value={a.PRGAZIENDA} onChange={af("PRGAZIENDA")} ph="00000" w="86px"/>
-              <F label="CF Rappresentante Firmatario" value={a.CFRappresentanteFirmatario} onChange={af("CFRappresentanteFirmatario")} ph="CF rep." w="196px"/>
-              <F label="Codice ISTAT" value={a.ISTAT} onChange={af("ISTAT")} ph="841110" w="146px"/>
-              <F label="Forma Giuridica" value={a.FormaGiuridica} onChange={af("FormaGiuridica")} opts={FG_OPTS} w="236px"/>
-            </div>
-          </div>
-          <div style={{...C.sec,background:"#060D18",borderColor:"#0E2030",fontSize:"11px",color:"#1A4060",lineHeight:"1.8"}}>
-            <strong style={{color:"#005A78"}}>Pulsanti header:</strong>&nbsp;
-            <span style={{color:"#3B1F6A",fontWeight:"700"}}>PDF</span> — rendiconto completo con semafori di congruità, apre finestra di stampa. &nbsp;
-            <span style={{color:"#78350F",fontWeight:"700"}}>↺ Nuova lavorazione</span> — reset totale con conferma (per nuovo comune o nuova elaborazione).
-          </div>
-        </>}
-
-        {tab===1&&<>
-          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"10px"}}>
-            <button style={{...C.btn("p"),padding:"6px 16px",fontSize:"13px"}} onClick={addDip}>+ Aggiungi dipendente</button>
-          </div>
-          {dips.length===0&&<div style={C.empty}>Nessun dipendente.</div>}
-          {dips.map(dip=>(
-            <div key={dip.id} style={C.card}>
-              <div style={C.cHdr} onClick={()=>{setXDip(xDip===dip.id?null:dip.id);setXPer(null);}}>
-                <div style={{display:"flex",gap:"10px",alignItems:"center"}}>
-                  <span style={{...C.mono,color:"#00AEEF",fontWeight:"700",fontSize:"13px"}}>{dip.CFLavoratore||"— CF —"}</span>
-                  <span style={{color:"#7AB8D4"}}>{dip.Cognome||"Cognome"} {dip.Nome||"Nome"}</span>
-                  <span style={{...C.bdg("#10B981"),fontSize:"9px"}}>{dip.periodi.length} V1</span>
-                  {dip.periodi.some(p=>hasWarn(p))&&<span style={{...C.bdg("#EF4444"),fontSize:"9px"}}>⚠ CONGRUITÀ</span>}
-                </div>
-                <div style={{display:"flex",gap:"6px"}}>
-                  <span style={{fontSize:"10px",color:xDip===dip.id?"#00AEEF":"#1E3A58"}}>{xDip===dip.id?"▲":"▼"}</span>
-                  <button style={C.btn("x")} onClick={e=>{e.stopPropagation();removeDip(dip.id);}}>✕</button>
-                </div>
-              </div>
-              {xDip===dip.id&&renderDip(dip)}
-            </div>
-          ))}
-        </>}
-
-        {tab===2&&<>
-          <div style={{display:"flex",gap:"10px",marginBottom:"13px",alignItems:"center",flexWrap:"wrap"}}>
-            <button style={{...C.btn("s"),padding:"7px 20px",fontSize:"13px"}} onClick={genera}>⚡ Genera XML</button>
-            {xml&&<button style={{...C.btn("p"),padding:"7px 20px",fontSize:"13px"}} onClick={scarica}>⬇ Scarica XML</button>}
-            {xml&&<span style={{fontSize:"11px",color:"#1E7048",fontVariantNumeric:"tabular-nums"}}>✓ {xml.length.toLocaleString("it")} car. · {totPer} D0 in 1 PosPA{a.AnnoMeseDenuncia&&<> · UNIEV{a.AnnoMeseDenuncia.replace("-","").slice(2)}.xml</>}</span>}
-          </div>
-
-          {dupCount!==null&&(dupCount>0
-            ?<div style={C.alert("w")}>⚠ Dedup: {dupCount} riga{dupCount>1?"he":""} EnteVersante duplicate rimosse.</div>
-            :<div style={C.alert("o")}>✓ Dedup: nessuna riga duplicata.</div>
-          )}
-          {warns.map((w,i)=>(
-            <div key={i} style={C.alert("e")}>
-              ⚠ <strong>{w.code}</strong> · {w.who} · {w.period}<br/>
-              {w.field}: Somma EV = {w.val} | Limite = {w.limit} | Eccesso = {w.excess}
-            </div>
-          ))}
-          {warns.length===0&&dupCount!==null&&<div style={C.alert("o")}>✓ Nessuna violazione di congruità rilevata.</div>}
-
-          {!xml&&<div style={C.empty}>Clicca "Genera XML" per produrre il flusso UniEmens variazione.</div>}
-          {xml&&<textarea style={{width:"100%",height:"480px",background:"#040B14",border:"1px solid #17304A",borderRadius:"6px",color:"#6EE7B7",fontFamily:"'Courier New',monospace",fontSize:"11px",padding:"11px",boxSizing:"border-box",outline:"none",resize:"vertical",lineHeight:"1.55"}} value={xml} readOnly/>}
-        </>}
-
-      </div>
-    </div>
-  );
-}
