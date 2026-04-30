@@ -295,13 +295,14 @@ function buildXML(m, a, dips) {
           x += `                          <GestCredito>\n                              <CodGestione>9</CodGestione>\n                              <Imponibile>${toIt(p.ImpCredito)}</Imponibile>\n                              <Contributo>${toIt(p.ContribCredito)}</Contributo>\n                          </GestCredito>\n`;
         }
         x += `                      </Gestioni>\n`;
-        /* RetribTeoricaTabellareTFR e RetribValutabileTFR: figli diretti di V1_PeriodoPrecedente
-           Posizione: dopo </Gestioni>, prima di CodiceCessazione ed EnteVersante */
+        /* Sequenza XSD V1_PeriodoPrecedente (confermata iterativamente dallo schema validator INPS):
+           </Gestioni> → [CodiceCessazione] → [RetribTeoricaTabellareTFR] → [RetribValutabileTFR]
+           → [DataFineBeneficioCalamita] → [DescrMotivoUtilizzo] → [ConguaglioImponibile] → [EnteVersante*] */
+        if (p.CodiceCessazione) x += `                      <CodiceCessazione>${esc(p.CodiceCessazione)}</CodiceCessazione>\n`;
         if (p.regimeTFS === "TFR" && p.ImpTFS) {
           x += `                      <RetribTeoricaTabellareTFR>${toIt(p.RetribTeoricaTabellareTFR)}</RetribTeoricaTabellareTFR>\n`;
           x += `                      <RetribValutabileTFR>${toIt(p.RetribValutabileTFR)}</RetribValutabileTFR>\n`;
         }
-        if (p.CodiceCessazione) x += `                      <CodiceCessazione>${esc(p.CodiceCessazione)}</CodiceCessazione>\n`;
         for (const ev of p.enteVersante) {
           if (!ev.AnnoMeseErogazione) continue;
           x += `                      <EnteVersante>\n                          <TipoContributo>${esc(ev.TipoContributo)}</TipoContributo>\n                          <CFAzienda>${esc(ev.CFAzienda)}</CFAzienda>\n                          <PRGAZIENDA>${esc(ev.PRGAZIENDA || "00000")}</PRGAZIENDA>\n                          <Imponibile>${toIt(ev.Imponibile)}</Imponibile>\n                          <Contributo>${toIt(ev.Contributo)}</Contributo>\n                          <AnnoMeseErogazione>${esc(ev.AnnoMeseErogazione)}</AnnoMeseErogazione>\n                          <Aliquota>${esc(ev.Aliquota || "2")}</Aliquota>\n                      </EnteVersante>\n`;
@@ -1449,8 +1450,8 @@ export default function UniEmensBuilder() {
 
       <div style={C.hdr}>
         <div>
-          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.3</div>
-          <div style={C.hdrS}>Fix TFR: ImponibileTFRUlterioriElem omesso se 0 · RetribTeorica+Valutabile auto ImpTFS×1,25 · ContributoTFRUlterioriElem · warn 00089I</div>
+          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.4</div>
+          <div style={C.hdrS}>Fix sequenza V1: CodiceCessazione prima di RetribTeoricaTabellareTFR/RetribValutabileTFR · schema XSD V1 completamente mappato</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
           <span style={{fontSize:"11px",color:"#94A3B8",fontVariantNumeric:"tabular-nums"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
