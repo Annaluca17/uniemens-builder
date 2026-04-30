@@ -341,20 +341,60 @@ function validateAll(dips) {
   const warns = [];
   for (const d of dips) {
     for (const p of d.periodi) {
-      if (!p.ImpCPDEL) continue;
-      const evEmpty = p.enteVersante.filter(e => !e.AnnoMeseErogazione);
-      if (evEmpty.length > 0) warns.push({ code: "AMEV", who: `${d.Cognome} ${d.Nome}`, period: `${p.GiornoInizio} → ${p.GiornoFine}`, val: String(evEmpty.length), limit: "—", excess: "—", field: `${evEmpty.length} riga/e EV senza AnnoMeseErogazione — escluse dall'XML (GYearMonth non accetta stringa vuota)` });
-      const sumContribTC1 = round2(p.enteVersante.filter(e => e.TipoContributo === "1" || e.TipoContributo === "5").reduce((s, e) => s + parseIt(e.Contributo), 0));
-      const limitContrib = round2(parseIt(p.ContribCPDEL) + parseIt(p.Contrib1Perc));
-      if (sumContribTC1 > limitContrib + 0.005) warns.push({ code: "00172I", who: `${d.Cognome} ${d.Nome}`, period: `${p.GiornoInizio} → ${p.GiornoFine}`, val: toIt(String(sumContribTC1)), limit: toIt(String(limitContrib)), excess: toIt(String(round2(sumContribTC1 - limitContrib))), field: "Contributo TC1 EV vs CPDEL+1%" });
-      const sumImpTC1 = round2(p.enteVersante.filter(e => e.TipoContributo === "1").reduce((s, e) => s + parseIt(e.Imponibile), 0));
-      const impCPDEL = parseIt(p.ImpCPDEL);
-      if (sumImpTC1 > impCPDEL + 0.005) warns.push({ code: "00171I", who: `${d.Cognome} ${d.Nome}`, period: `${p.GiornoInizio} → ${p.GiornoFine}`, val: toIt(String(sumImpTC1)), limit: toIt(p.ImpCPDEL), excess: toIt(String(round2(sumImpTC1 - impCPDEL))), field: "Imponibile TC1 EV vs GestPensionistica" });
-      if (p.ImpCredito) {
-        const sumImpTC9 = round2(p.enteVersante.filter(e => e.TipoContributo === "9").reduce((s, e) => s + parseIt(e.Imponibile), 0));
-        const impCred = parseIt(p.ImpCredito);
-        if (sumImpTC9 > impCred + 0.005) warns.push({ code: "00032I", who: `${d.Cognome} ${d.Nome}`, period: `${p.GiornoInizio} → ${p.GiornoFine}`, val: toIt(String(sumImpTC9)), limit: toIt(p.ImpCredito), excess: toIt(String(round2(sumImpTC9 - impCred))), field: "Imponibile TC9 EV vs GestCredito" });
+      const who = `${d.Cognome} ${d.Nome}`;
+      const period = `${p.GiornoInizio} → ${p.GiornoFine}`;
+      /* ── CPDEL imponibile (00171I bidirezionale) ── */
+      if (p.ImpCPDEL) {
+        const sumImpTC1 = round2(p.enteVersante.filter(e=>e.TipoContributo==="1").reduce((s,e)=>s+parseIt(e.Imponibile),0));
+        const impCPDEL = parseIt(p.ImpCPDEL);
+        const diff171 = round2(sumImpTC1 - impCPDEL);
+        if (Math.abs(diff171) > 0.005) warns.push({ code:"00171I", who, period, val:toIt(String(sumImpTC1)), limit:toIt(String(impCPDEL)), excess:toIt(String(diff171)), field:`Σ Imp. TC1 vs GestPensionistica — ${diff171>0?"ECCESSO":"RESIDUO"}` });
+        /* ── CPDEL contributo (00172I bidirezionale) ── */
+        const sumContribTC1 = round2(p.enteVersante.filter(e=>e.TipoContributo==="1"||e.TipoContributo==="5").reduce((s,e)=>s+parseIt(e.Contributo),0));
+        const limitContrib = round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
+        const diff172 = round2(sumContribTC1 - limitContrib);
+        if (Math.abs(diff172) > 0.005) warns.push({ code:"00172I", who, period, val:toIt(String(sumContribTC1)), limit:toIt(String(limitContrib)), excess:toIt(String(diff172)), field:`Σ Contrib. TC1+TC5 vs CPDEL+1% — ${diff172>0?"ECCESSO":"RESIDUO"}` });
       }
+      /* ── Credito imponibile (00032I bidirezionale) ── */
+      if (p.ImpCredito) {
+        const sumImpTC9 = round2(p.enteVersante.filter(e=>e.TipoContributo==="9").reduce((s,e)=>s+parseIt(e.Imponibile),0));
+        const impCred = parseIt(p.ImpCredito);
+        const diff032 = round2(sumImpTC9 - impCred);
+        if (Math.abs(diff032) > 0.005) warns.push({ code:"00032I", who, period, val:toIt(String(sumImpTC9)), limit:toIt(String(impCred)), excess:toIt(String(diff032)), field:`Σ Imp. TC9 vs GestCredito — ${diff032>0?"ECCESSO":"RESIDUO"}` });
+        /* ── Credito contributo ── */
+        const sumContribTC9 = round2(p.enteVersante.filter(e=>e.TipoContributo==="9").reduce((s,e)=>s+parseIt(e.Contributo),0));
+        const contribCred = parseIt(p.ContribCredito);
+        const diff032C = round2(sumContribTC9 - contribCred);
+        if (Math.abs(diff032C) > 0.005) warns.push({ code:"Contrib.Cred.", who, period, val:toIt(String(sumContribTC9)), limit:toIt(String(contribCred)), excess:toIt(String(diff032C)), field:`Σ Contrib. TC9 vs GestCredito.Contributo — ${diff032C>0?"ECCESSO":"RESIDUO"}` });
+      }
+      /* ── TFS (TC7 bidirezionale) ── */
+      if (p.ImpTFS && p.regimeTFS==="TFS") {
+        const sumImpTC7 = round2(p.enteVersante.filter(e=>e.TipoContributo==="7").reduce((s,e)=>s+parseIt(e.Imponibile),0));
+        const impTFS = parseIt(p.ImpTFS);
+        const diff7I = round2(sumImpTC7 - impTFS);
+        if (Math.abs(diff7I) > 0.005) warns.push({ code:"TFS-Imp.", who, period, val:toIt(String(sumImpTC7)), limit:toIt(String(impTFS)), excess:toIt(String(diff7I)), field:`Σ Imp. TC7 vs GestPrevidenziale TFS — ${diff7I>0?"ECCESSO":"RESIDUO"}` });
+        const sumContribTC7 = round2(p.enteVersante.filter(e=>e.TipoContributo==="7").reduce((s,e)=>s+parseIt(e.Contributo),0));
+        const contribTFS = parseIt(p.ContribTFS);
+        const diff7C = round2(sumContribTC7 - contribTFS);
+        if (Math.abs(diff7C) > 0.005) warns.push({ code:"TFS-Cont.", who, period, val:toIt(String(sumContribTC7)), limit:toIt(String(contribTFS)), excess:toIt(String(diff7C)), field:`Σ Contrib. TC7 vs GestPrevidenziale TFS — ${diff7C>0?"ECCESSO":"RESIDUO"}` });
+      }
+      /* ── TFR (TC8 bidirezionale) + verifica Retrib ── */
+      if (p.ImpTFS && p.regimeTFS==="TFR") {
+        const sumImpTC8 = round2(p.enteVersante.filter(e=>e.TipoContributo==="8").reduce((s,e)=>s+parseIt(e.Imponibile),0));
+        const impTFS = parseIt(p.ImpTFS);
+        const diff8I = round2(sumImpTC8 - impTFS);
+        if (Math.abs(diff8I) > 0.005) warns.push({ code:"TFR-Imp.", who, period, val:toIt(String(sumImpTC8)), limit:toIt(String(impTFS)), excess:toIt(String(diff8I)), field:`Σ Imp. TC8 vs GestPrevidenziale TFR — ${diff8I>0?"ECCESSO":"RESIDUO"}` });
+        const sumContribTC8 = round2(p.enteVersante.filter(e=>e.TipoContributo==="8").reduce((s,e)=>s+parseIt(e.Contributo),0));
+        const contribTFS = parseIt(p.ContribTFS);
+        const diff8C = round2(sumContribTC8 - contribTFS);
+        if (Math.abs(diff8C) > 0.005) warns.push({ code:"TFR-Cont.", who, period, val:toIt(String(sumContribTC8)), limit:toIt(String(contribTFS)), excess:toIt(String(diff8C)), field:`Σ Contrib. TC8 vs GestPrevidenziale TFR — ${diff8C>0?"ECCESSO":"RESIDUO"}` });
+        /* RetribTeoricaTabellareTFR e RetribValutabileTFR obbligatori se ImponibileTFR > 0 */
+        if (impTFS > 0 && (parseIt(p.RetribTeoricaTabellareTFR||"0")===0 || parseIt(p.RetribValutabileTFR||"0")===0))
+          warns.push({ code:"RetribTFR", who, period, val:"0", limit:">0", excess:"—", field:"RetribTeoricaTabellareTFR e/o RetribValutabileTFR sono 0 — obbligatori con ImponibileTFR > 0" });
+      }
+      /* ── EV senza AnnoMeseErogazione ── */
+      const evEmpty = p.enteVersante.filter(e => !e.AnnoMeseErogazione);
+      if (evEmpty.length > 0) warns.push({ code:"AMEV", who, period, val:String(evEmpty.length), limit:"—", excess:"—", field:`${evEmpty.length} riga/e EV senza AnnoMeseErogazione — escluse dall'XML` });
     }
   }
   return warns;
@@ -709,6 +749,19 @@ export default function UniEmensBuilder() {
     if(p.id!==perId)return p;
     const u={[k]:v};
     if(k==="ImpCPDEL") u.ImpCredito=v;
+    /* RegimeFineServizio → regimeTFS sync (unidirezionale: prevale RegimeFineServizio)
+       1=TFR privatistico, 2=TFR misto → TFR; 3=TFS INADEL → TFS */
+    if(k==="RegimeFineServizio"){
+      const isTFRMode=v==="1"||v==="2";
+      u.regimeTFS=isTFRMode?"TFR":"TFS";
+      if(isTFRMode){
+        const imp=p.ImpTFS||"0";
+        const ult=p.ImponibileTFRUlterioriElem||"";
+        const base=round2(parseIt(imp)*1.25);
+        u.RetribTeoricaTabellareTFR=toIt(String(base));
+        u.RetribValutabileTFR=toIt(String(round2(base+parseIt(ult||"0"))));
+      }
+    }
     /* TFR auto-calc:
        RetribTeoricaTabellareTFR = ImponibileTFR × 1,25  (porzione tabellare)
        RetribValutabileTFR       = ImponibileTFR × 1,25 + ImponibileTFRUlterioriElem
@@ -797,23 +850,37 @@ export default function UniEmensBuilder() {
 
   /* ── helpers congruità per singolo periodo ── */
   const evSums=(p)=>({
-    sumImpTC1: round2(p.enteVersante.filter(e=>e.TipoContributo==="1").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
-    sumImpTC9: round2(p.enteVersante.filter(e=>e.TipoContributo==="9").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
-    sumImpTC7: round2(p.enteVersante.filter(e=>e.TipoContributo==="7").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
-    sumContribTC1: round2(p.enteVersante.filter(e=>e.TipoContributo==="1"||e.TipoContributo==="5").reduce((s,e)=>s+parseIt(e.Contributo),0)),
+    sumImpTC1:    round2(p.enteVersante.filter(e=>e.TipoContributo==="1").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
+    sumImpTC7:    round2(p.enteVersante.filter(e=>e.TipoContributo==="7").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
+    sumImpTC8:    round2(p.enteVersante.filter(e=>e.TipoContributo==="8").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
+    sumImpTC9:    round2(p.enteVersante.filter(e=>e.TipoContributo==="9").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
+    sumContribTC1:round2(p.enteVersante.filter(e=>e.TipoContributo==="1"||e.TipoContributo==="5").reduce((s,e)=>s+parseIt(e.Contributo),0)),
+    sumContribTC7:round2(p.enteVersante.filter(e=>e.TipoContributo==="7").reduce((s,e)=>s+parseIt(e.Contributo),0)),
+    sumContribTC8:round2(p.enteVersante.filter(e=>e.TipoContributo==="8").reduce((s,e)=>s+parseIt(e.Contributo),0)),
+    sumContribTC9:round2(p.enteVersante.filter(e=>e.TipoContributo==="9").reduce((s,e)=>s+parseIt(e.Contributo),0)),
   });
   const hasWarn=(p)=>{
-    if(!p.ImpCPDEL)return false;
-    const{sumImpTC1,sumImpTC9,sumContribTC1}=evSums(p);
+    if(!p.ImpCPDEL&&!p.ImpTFS&&!p.ImpCredito)return false;
+    const{sumImpTC1,sumImpTC9,sumContribTC1,sumImpTC7,sumImpTC8,sumContribTC7,sumContribTC8,sumContribTC9}=evSums(p);
     const lc=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
-    return sumImpTC1>parseIt(p.ImpCPDEL)+0.005||sumContribTC1>lc+0.005||(p.ImpCredito&&sumImpTC9>parseIt(p.ImpCredito)+0.005);
+    if(p.ImpCPDEL&&(Math.abs(sumImpTC1-parseIt(p.ImpCPDEL))>0.005||Math.abs(sumContribTC1-lc)>0.005))return true;
+    if(p.ImpCredito&&(Math.abs(sumImpTC9-parseIt(p.ImpCredito))>0.005||Math.abs(sumContribTC9-parseIt(p.ContribCredito))>0.005))return true;
+    if(p.ImpTFS){
+      if(p.regimeTFS==="TFS"&&(Math.abs(sumImpTC7-parseIt(p.ImpTFS))>0.005||Math.abs(sumContribTC7-parseIt(p.ContribTFS))>0.005))return true;
+      if(p.regimeTFS==="TFR"&&(Math.abs(sumImpTC8-parseIt(p.ImpTFS))>0.005||Math.abs(sumContribTC8-parseIt(p.ContribTFS))>0.005))return true;
+      if(p.regimeTFS==="TFR"&&parseIt(p.ImpTFS)>0&&(parseIt(p.RetribTeoricaTabellareTFR||"0")===0||parseIt(p.RetribValutabileTFR||"0")===0))return true;
+    }
+    return false;
   };
 
   /* ════ RENDER periodo ════ */
   const renderPer=(dip,p)=>{
-    const{sumImpTC1,sumImpTC9,sumContribTC1}=evSums(p);
+    const{sumImpTC1,sumImpTC9,sumContribTC1,sumImpTC7,sumImpTC8,sumContribTC7,sumContribTC8,sumContribTC9}=evSums(p);
     const impCPDEL=parseIt(p.ImpCPDEL);
     const impCred=parseIt(p.ImpCredito);
+    const contribCred=parseIt(p.ContribCredito);
+    const impTFS=parseIt(p.ImpTFS);
+    const contribTFS=parseIt(p.ContribTFS);
     const limitContrib=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
     const over171=p.ImpCPDEL&&sumImpTC1>impCPDEL+0.005;
     const under171=p.ImpCPDEL&&sumImpTC1<impCPDEL-0.005;
@@ -821,6 +888,23 @@ export default function UniEmensBuilder() {
     const under032=p.ImpCredito&&sumImpTC9<impCred-0.005;
     const over172=p.ImpCPDEL&&sumContribTC1>limitContrib+0.005;
     const under172=p.ImpCPDEL&&sumContribTC1<limitContrib-0.005;
+    /* contributo credito */
+    const over032C=p.ImpCredito&&sumContribTC9>contribCred+0.005;
+    const under032C=p.ImpCredito&&sumContribTC9<contribCred-0.005;
+    /* TFS */
+    const hasTFSCheck=p.ImpTFS&&p.regimeTFS==="TFS";
+    const over_tfsImp=hasTFSCheck&&sumImpTC7>impTFS+0.005;
+    const under_tfsImp=hasTFSCheck&&sumImpTC7<impTFS-0.005;
+    const over_tfsCont=hasTFSCheck&&sumContribTC7>contribTFS+0.005;
+    const under_tfsCont=hasTFSCheck&&sumContribTC7<contribTFS-0.005;
+    /* TFR */
+    const hasTFRCheck=p.ImpTFS&&p.regimeTFS==="TFR";
+    const over_tfrImp=hasTFRCheck&&sumImpTC8>impTFS+0.005;
+    const under_tfrImp=hasTFRCheck&&sumImpTC8<impTFS-0.005;
+    const over_tfrCont=hasTFRCheck&&sumContribTC8>contribTFS+0.005;
+    const under_tfrCont=hasTFRCheck&&sumContribTC8<contribTFS-0.005;
+    /* RetribTeorica/Valutabile TFR — devono essere > 0 se ImpTFR > 0 */
+    const warnRetribTFR=hasTFRCheck&&impTFS>0&&(parseIt(p.RetribTeoricaTabellareTFR||"0")===0||parseIt(p.RetribValutabileTFR||"0")===0);
 
     /* banner causale 6 */
     if (p.CausaleVariazione === "6") {
@@ -999,49 +1083,95 @@ export default function UniEmensBuilder() {
           </table>
         </div>
 
-        {p.ImpCPDEL&&(
+        {(p.ImpCPDEL||p.ImpTFS||p.ImpCredito)&&(
           <div style={{marginTop:"9px",background:"#F8FBFD",border:"1px solid #D6EAF8",borderRadius:"5px",overflow:"hidden"}}>
             <div style={{background:"#EAF4FB",padding:"5px 9px",fontSize:"9px",fontWeight:"700",color:"#0369A1",textTransform:"uppercase",letterSpacing:"1px"}}>
               Verifica Congruità Somme EV — confronto in tempo reale
             </div>
+            {warnRetribTFR&&(
+              <div style={{background:"#FEF2F2",border:"1px solid #FCA5A5",borderRadius:"4px",margin:"6px 9px",padding:"5px 8px",fontSize:"10px",fontWeight:"700",color:"#991B1B"}}>
+                ⚠ Retrib.Teorica Tabellare TFR e/o Retrib.Valutabile TFR sono 0 — obbligatori quando ImponibileTFR &gt; 0
+              </div>
+            )}
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
               <thead>
                 <tr>
-                  <th style={C.th}>Controllo INPS</th>
+                  <th style={C.th}>Controllo</th>
                   <th style={{...C.th,textAlign:"right"}}>Σ EV</th>
-                  <th style={{...C.th,textAlign:"right"}}>Limite gestione</th>
+                  <th style={{...C.th,textAlign:"right"}}>Totale gestione</th>
                   <th style={{...C.th,textAlign:"right"}}>Differenza</th>
                   <th style={C.th}>Esito</th>
                 </tr>
               </thead>
               <tbody>
-                <tr style={C.sumRow(over171?"over":under171?"under":"ok")}>
-                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over171?"#DC2626":under171?"#D97706":"#16A34A"}}>00171I</span> Σ Imponibile TC1</td>
-                  <td style={{...C.tdR,color:over171?"#DC2626":under171?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(sumImpTC1))}</td>
-                  <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ImpCPDEL)}</td>
-                  <td style={{...C.tdR,color:over171?"#DC2626":under171?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(round2(sumImpTC1-impCPDEL)))}</td>
-                  <td style={C.td}>{over171?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under171?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
-                </tr>
-                {p.ImpCredito&&(
+                {p.ImpCPDEL&&(<>
+                  <tr style={C.sumRow(over171?"over":under171?"under":"ok")}>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over171?"#DC2626":under171?"#D97706":"#16A34A"}}>00171I</span> Σ Imp. TC1 — CPDEL</td>
+                    <td style={{...C.tdR,color:over171?"#DC2626":under171?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(sumImpTC1))}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ImpCPDEL)}</td>
+                    <td style={{...C.tdR,color:over171?"#DC2626":under171?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(round2(sumImpTC1-impCPDEL)))}</td>
+                    <td style={C.td}>{over171?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under171?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
+                  </tr>
+                  <tr style={C.sumRow(over172?"over":under172?"under":"ok")}>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#DC2626":under172?"#D97706":"#16A34A"}}>00172I</span> Σ Contrib. TC1+TC5 — CPDEL</td>
+                    <td style={{...C.tdR,color:over172?"#DC2626":under172?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(String(limitContrib))} (CPDEL+1%)</td>
+                    <td style={{...C.tdR,color:over172?"#DC2626":under172?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
+                    <td style={C.td}>{over172?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under172?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
+                  </tr>
+                </>)}
+                {p.ImpCredito&&(<>
                   <tr style={C.sumRow(over032?"over":under032?"under":"ok")}>
-                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032?"#DC2626":under032?"#D97706":"#16A34A"}}>00032I</span> Σ Imponibile TC9</td>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032?"#DC2626":under032?"#D97706":"#16A34A"}}>00032I</span> Σ Imp. TC9 — Credito</td>
                     <td style={{...C.tdR,color:over032?"#DC2626":under032?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(sumImpTC9))}</td>
                     <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ImpCredito)}</td>
                     <td style={{...C.tdR,color:over032?"#DC2626":under032?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(round2(sumImpTC9-impCred)))}</td>
                     <td style={C.td}>{over032?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under032?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
                   </tr>
-                )}
-                <tr style={C.sumRow(over172?"over":under172?"under":"ok")}>
-                  <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#DC2626":under172?"#D97706":"#16A34A"}}>00172I</span> Σ Contributo TC1+TC5</td>
-                  <td style={{...C.tdR,color:over172?"#DC2626":under172?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
-                  <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(String(limitContrib))} (CPDEL+1%)</td>
-                  <td style={{...C.tdR,color:over172?"#DC2626":under172?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
-                  <td style={C.td}>{over172?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under172?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
-                </tr>
+                  <tr style={C.sumRow(over032C?"over":under032C?"under":"ok")}>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032C?"#DC2626":under032C?"#D97706":"#16A34A"}}>Contrib.</span> Σ Contrib. TC9 — Credito</td>
+                    <td style={{...C.tdR,color:over032C?"#DC2626":under032C?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(sumContribTC9))}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ContribCredito||"0")}</td>
+                    <td style={{...C.tdR,color:over032C?"#DC2626":under032C?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(round2(sumContribTC9-contribCred)))}</td>
+                    <td style={C.td}>{over032C?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under032C?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
+                  </tr>
+                </>)}
+                {hasTFSCheck&&(<>
+                  <tr style={C.sumRow(over_tfsImp?"over":under_tfsImp?"under":"ok")}>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over_tfsImp?"#DC2626":under_tfsImp?"#D97706":"#16A34A"}}>TFS</span> Σ Imp. TC7 — TFS/INADEL</td>
+                    <td style={{...C.tdR,color:over_tfsImp?"#DC2626":under_tfsImp?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(sumImpTC7))}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ImpTFS)}</td>
+                    <td style={{...C.tdR,color:over_tfsImp?"#DC2626":under_tfsImp?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(round2(sumImpTC7-impTFS)))}</td>
+                    <td style={C.td}>{over_tfsImp?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under_tfsImp?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
+                  </tr>
+                  <tr style={C.sumRow(over_tfsCont?"over":under_tfsCont?"under":"ok")}>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over_tfsCont?"#DC2626":under_tfsCont?"#D97706":"#16A34A"}}>TFS</span> Σ Contrib. TC7 — TFS/INADEL</td>
+                    <td style={{...C.tdR,color:over_tfsCont?"#DC2626":under_tfsCont?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(sumContribTC7))}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ContribTFS||"0")}</td>
+                    <td style={{...C.tdR,color:over_tfsCont?"#DC2626":under_tfsCont?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(round2(sumContribTC7-contribTFS)))}</td>
+                    <td style={C.td}>{over_tfsCont?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under_tfsCont?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
+                  </tr>
+                </>)}
+                {hasTFRCheck&&(<>
+                  <tr style={C.sumRow(over_tfrImp?"over":under_tfrImp?"under":"ok")}>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over_tfrImp?"#DC2626":under_tfrImp?"#D97706":"#16A34A"}}>TFR</span> Σ Imp. TC8 — TFR</td>
+                    <td style={{...C.tdR,color:over_tfrImp?"#DC2626":under_tfrImp?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(sumImpTC8))}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ImpTFS)}</td>
+                    <td style={{...C.tdR,color:over_tfrImp?"#DC2626":under_tfrImp?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(round2(sumImpTC8-impTFS)))}</td>
+                    <td style={C.td}>{over_tfrImp?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under_tfrImp?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
+                  </tr>
+                  <tr style={C.sumRow(over_tfrCont?"over":under_tfrCont?"under":"ok")}>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over_tfrCont?"#DC2626":under_tfrCont?"#D97706":"#16A34A"}}>TFR</span> Σ Contrib. TC8 — TFR</td>
+                    <td style={{...C.tdR,color:over_tfrCont?"#DC2626":under_tfrCont?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(sumContribTC8))}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ContribTFS||"0")}</td>
+                    <td style={{...C.tdR,color:over_tfrCont?"#DC2626":under_tfrCont?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(round2(sumContribTC8-contribTFS)))}</td>
+                    <td style={C.td}>{over_tfrCont?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under_tfrCont?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
+                  </tr>
+                </>)}
               </tbody>
             </table>
             <div style={{fontSize:"9px",color:"#64748B",padding:"4px 9px"}}>
-              Valori negativi = margine residuo. Valori positivi = eccesso da correggere prima del passaggio al sw INPS.
+              Differenza negativa = margine residuo. Differenza positiva = eccesso. Differenza 0,00 = quadratura esatta.
             </div>
           </div>
         )}
