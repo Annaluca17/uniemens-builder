@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef } from "react";
 
 /* ═══ UTILITIES ═══ */
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -416,156 +416,95 @@ function generatePDF(m, a, dips) {
   setTimeout(() => w.print(), 600);
 }
 
-/* ════ THEME PALETTE — Immedia S.p.A. design system ════
-   Token strategy: T = PALETTE[theme] computed inside component.
-   C = buildC(T) computed inside component (theme-reactive).
-══════════════════════════════════════════════════════════ */
-const PALETTE = {
-  light: {
-    appBg:"#F9FAFB", bodyText:"#334155",
-    hdrBg:"#1E2939", hdrBorder:"2px solid #00AEEF33", hdrTitle:"#FFFFFF", hdrSub:"#C8D6E5",
-    tabsBg:"#FFFFFF", tabsBorder:"#D9E3EC", tabOn:"#0369A1", tabOff:"#6A7282",
-    bodyPadBg:"#F3F7FA",
-    secBg:"#FFFFFF", secBorder:"#E5E7EB", secShadow:"0 4px 12px rgba(0,0,0,0.06)",
-    sectionTitle:"#0369A1", sectionRule:"#D9E3EC",
-    label:"#6A7282",
-    inputBg:"#FFFFFF", inputBorder:"#CBD5E1", inputText:"#334155", inputShadow:"inset 0 1px 0 rgba(255,255,255,0.9)",
-    inputGreenBg:"#F0FDF4", inputGreenBorder:"#86EFAC", inputGreenText:"#166534",
-    inputRedBg:"#FEF2F2", inputRedBorder:"#FCA5A5", inputRedText:"#991B1B",
-    buttonBaseBg:"#E2E8F0", buttonBaseText:"#334155",
-    cardBg:"#FFFFFF", cardBorder:"#E5E7EB", cardHeadBg:"#F8FAFC",
-    subBg:"#F8FBFD", subBorder:"#E2E8F0", subTitle:"#0369A1",
-    thBg:"#EFF6FF", thColor:"#4A5565", thDangerBg:"#FFF1F2", thDangerColor:"#9F1239",
-    tdBorder:"#E6EDF3",
-    sumOk:"#F0FDF4", sumOver:"#FEF2F2", sumUnder:"#FFFBEB",
-    badgeText:"#FFFFFF", empty:"#94A3B8",
-    alertErrBg:"#FEF2F2", alertErrBorder:"#FCA5A5", alertErrText:"#991B1B",
-    alertOkBg:"#F0FDF4", alertOkBorder:"#86EFAC", alertOkText:"#166534",
-    alertWarnBg:"#FFFBEB", alertWarnBorder:"#FCD34D", alertWarnText:"#92400E",
-    modalOverlay:"rgba(15,23,42,0.32)", modalBg:"#FFFFFF", modalBorder:"#D6EAF8",
-    monoText:"#334155",
-    xmlBg:"#FFFFFF", xmlBorder:"#CBD5E1", xmlText:"#166534",
-    stickyBg:"#F8FBFD", stickyText:"#0369A1",
-    congrBg:"#F8FBFD", congrBorder:"#D6EAF8", congrHeadBg:"#EAF4FB", congrHeadText:"#0369A1",
-    footText:"#6A7282", helperGreen:"#15803D",
-    ok:"#22C55E", okSoft:"#166534", warn:"#F59E0B", warnSoft:"#92400E", err:"#EF4444", errSoft:"#991B1B",
-    dateErrBg:"#FFF7ED", dateErrBorder:"#FDBA74", dateErrTitle:"#C2410C", dateErrText:"#9A3412",
-    tabHintBg:"#EFF6FF", tabHintBorder:"#BFDBFE", tabHintText:"#1E40AF",
-    statsText:"#64748B", partTimeText:"#0369A1",
-    stepActive:"#EDE9FE", stepActiveBorder:"#7C3AED", stepActiveText:"#5B21B6",
-    stepDone:"#F0FDF4", stepDoneBorder:"#16A34A", stepDoneText:"#15803D",
-    stepIdle:"#F3F7FA", stepIdleBorder:"transparent", stepIdleText:"#94A3B8",
-    annoYrBg:"#EFF6FF", annoYrBorder:"#BFDBFE", annoYrText:"#1E40AF",
-    annoPillBg:"#DBEAFE", annoPillText:"#1E40AF",
-    annoNoteText:"#15803D",
-    yrHdrBg:"#EFF6FF", yrHdrText:"#2563EB",
-    decRowBg:"#F0FDF4", normRowBg:"transparent",
-    decSticky:"#E7FAF0", decStickyText:"#16A34A",
-    normSticky:"#F8FBFD", normStickyText:"#0369A1",
-    sumRowGoodBg:"#F0FDF4", sumRowGoodText:"#22C55E",
-    sumRowBadBg:"#FEF2F2", sumRowBadText:"#EF4444",
-    sumRowNeutral:"#6A7282",
-    totRowBg:"#EFF6FF", totRowText:"#2563EB",
-    importSelBg:"#F0FDF4", importSelCF:"#15803D", importSelName:"#166534", importUnselCF:"#6A7282", importUnselName:"#64748B",
-    importNoteBg:"#F0FDF4", importNoteBorder:"#86EFAC", importNoteText:"#166534",
-    resetTitleColor:"#EF4444", resetBodyColor:"#64748B",
-    cumHeaderColor:"#7C3AED", cumSubColor:"#64748B",
-    importHeaderColor:"#22C55E", importSubColor:"#64748B", importStrongColor:"#16A34A",
-  },
-  dark: {
-    appBg:"#182736", bodyText:"#DCE8F2",
-    hdrBg:"#1E2939", hdrBorder:"2px solid #00AEEF33", hdrTitle:"#32C5F4", hdrSub:"#B7C7D3",
-    tabsBg:"#142232", tabsBorder:"#3B6078", tabOn:"#42C8F0", tabOff:"#8DA4B8",
-    bodyPadBg:"#111C28",
-    secBg:"#182837", secBorder:"#3F647C", secShadow:"0 6px 18px rgba(0,0,0,0.10)",
-    sectionTitle:"#43C7EF", sectionRule:"#3B6078",
-    label:"#AFC0CD",
-    inputBg:"#1B2C3A", inputBorder:"#4B6A80", inputText:"#F2F7FB", inputShadow:"inset 0 1px 0 rgba(255,255,255,0.03)",
-    inputGreenBg:"#0F2018", inputGreenBorder:"#1F7A4A", inputGreenText:"#D6FAE3",
-    inputRedBg:"#241010", inputRedBorder:"#9A3333", inputRedText:"#FEE2E2",
-    buttonBaseBg:"#20303F", buttonBaseText:"#DCE8F2",
-    cardBg:"#182736", cardBorder:"#30536F", cardHeadBg:"#1B2A39",
-    subBg:"#1A2B39", subBorder:"#406379", subTitle:"#59CDEA",
-    thBg:"#203442", thColor:"#A9BED0", thDangerBg:"#2B1414", thDangerColor:"#D29A9A",
-    tdBorder:"#3B6078",
-    sumOk:"#102418", sumOver:"#2B1414", sumUnder:"#30250F",
-    badgeText:"#FFFFFF", empty:"#90A5B8",
-    alertErrBg:"#241010", alertErrBorder:"#9A3333", alertErrText:"#FEE2E2",
-    alertOkBg:"#0F2018", alertOkBorder:"#1F7A4A", alertOkText:"#D6FAE3",
-    alertWarnBg:"#2A2110", alertWarnBorder:"#B45309", alertWarnText:"#FDE68A",
-    modalOverlay:"rgba(6,12,18,0.74)", modalBg:"#1A2A38", modalBorder:"#4D7188",
-    monoText:"#DCE8F2",
-    xmlBg:"#152431", xmlBorder:"#3A617B", xmlText:"#D7F3E2",
-    stickyBg:"#1A2836", stickyText:"#59CDEA",
-    congrBg:"#1B2B38", congrBorder:"#3B6078", congrHeadBg:"#203442", congrHeadText:"#54CAE9",
-    footText:"#A9C0CF", helperGreen:"#9BE5B8",
-    ok:"#86EFAC", okSoft:"#BBF7D0", warn:"#FBBF24", warnSoft:"#FDE68A", err:"#F87171", errSoft:"#FECACA",
-    dateErrBg:"#1C0E00", dateErrBorder:"#7A3200", dateErrTitle:"#F08030", dateErrText:"#C07040",
-    tabHintBg:"#060D18", tabHintBorder:"#0E2030", tabHintText:"#1A4060",
-    statsText:"#1E3A58", partTimeText:"#7AB8D4",
-    stepActive:"#2E1860", stepActiveBorder:"#8B5CF6", stepActiveText:"#C4B5FD",
-    stepDone:"#053A18", stepDoneBorder:"#16803A", stepDoneText:"#4ADE80",
-    stepIdle:"#0C1520", stepIdleBorder:"transparent", stepIdleText:"#2A4060",
-    annoYrBg:"#1A2B39", annoYrBorder:"#3B6078", annoYrText:"#6EC99E",
-    annoPillBg:"#122434", annoPillText:"#3A8090",
-    annoNoteText:"#1A4830",
-    yrHdrBg:"#060D18", yrHdrText:"#2E6078",
-    decRowBg:"#091808", normRowBg:"transparent",
-    decSticky:"#091808", decStickyText:"#4ADE80",
-    normSticky:"#0C1520", normStickyText:"#7AB8D4",
-    sumRowGoodBg:"#051A0C", sumRowGoodText:"#4ADE80",
-    sumRowBadBg:"#200808", sumRowBadText:"#EF4444",
-    sumRowNeutral:"#3A8060",
-    totRowBg:"#060D18", totRowText:"#00AEEF",
-    importSelBg:"#061812", importSelCF:"#86EFAC", importSelName:"#A7F3D0", importUnselCF:"#3A7060", importUnselName:"#4A8A70",
-    importNoteBg:"#050E0C", importNoteBorder:"#0E2A22", importNoteText:"#2E5848",
-    resetTitleColor:"#FCA5A5", resetBodyColor:"#C8B090",
-    cumHeaderColor:"#C4B5FD", cumSubColor:"#4A3870",
-    importHeaderColor:"#86EFAC", importSubColor:"#3A7060", importStrongColor:"#6EE7C4",
-  }
+/* ════ STYLES ════
+   Palette: Immedia S.p.A. design system
+   Primary  #00AEEF  brand cyan
+   Navy     #1E2939  dark surfaces
+   Ocean    #0369A1  interactive mid-blue
+   Gold     #C48820  accent sparingly
+═══════════════════════════════════════════ */
+const C = {
+  /* ── Shell ── */
+  app:   { fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", fontSize: "13px", background: "#0C1520", color: "#C2D8EC", minHeight: "100vh", display: "flex", flexDirection: "column" },
+
+  /* ── Header ── */
+  hdr:   { background: "#101C2C", borderBottom: "2px solid #00AEEF33", padding: "11px 18px", display: "flex", alignItems: "center", gap: "12px" },
+  hdrT:  { fontSize: "15px", fontWeight: "700", color: "#00AEEF", letterSpacing: "-0.01em" },
+  hdrS:  { fontSize: "10px", color: "#3A5870", marginTop: "3px", letterSpacing: "0.02em" },
+
+  /* ── Tabs ── */
+  tabs:  { display: "flex", background: "#0C1520", borderBottom: "1px solid #17304A" },
+  tab:   (a) => ({ padding: "9px 20px", cursor: "pointer", fontSize: "12px", fontWeight: "600", border: "none", background: "transparent", color: a ? "#00AEEF" : "#3A5870", borderBottom: a ? "2px solid #00AEEF" : "2px solid transparent", letterSpacing: "0.01em", transition: "color 150ms" }),
+
+  /* ── Body / Sections ── */
+  body:  { flex: 1, overflowY: "auto", padding: "16px 18px" },
+  sec:   { background: "#101C2C", border: "1px solid #1A3450", borderRadius: "8px", padding: "14px 16px", marginBottom: "14px" },
+  sT:    { fontSize: "10px", fontWeight: "700", color: "#00AEEF", textTransform: "uppercase", letterSpacing: "1.2px", marginBottom: "12px", paddingBottom: "7px", borderBottom: "1px solid #17304A" },
+  row:   { display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "9px" },
+
+  /* ── Labels ── */
+  lbl:   { fontSize: "10px", color: "#4A6E8C", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: "4px", display: "block", fontWeight: "600" },
+
+  /* ── Inputs ── */
+  inp:   { background: "#070F1C", border: "1px solid #1C3A56", borderRadius: "4px", color: "#C2D8EC", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
+  inpG:  { background: "#04130A", border: "1px solid #0E4228", borderRadius: "4px", color: "#7EE8A4", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
+  inpR:  { background: "#160606", border: "1px solid #581818", borderRadius: "4px", color: "#FCA5A5", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
+  sel:   { background: "#070F1C", border: "1px solid #1C3A56", borderRadius: "4px", color: "#C2D8EC", padding: "5px 8px", fontSize: "11px", outline: "none", width: "100%", boxSizing: "border-box" },
+
+  /* ── Buttons
+       p = primary (ocean)   s = success (emerald)  x = danger (red)
+       w = warning (amber)   pdf = purple            imp = teal-dark
+       cum = violet          d = default (slate)
+  ── */
+  btn:   (v="d") => ({
+    padding: "5px 12px", borderRadius: "5px", border: "none", cursor: "pointer",
+    fontSize: "11px", fontWeight: "600", letterSpacing: "0.02em",
+    background: v==="p"?"#0E4F78":v==="s"?"#064E3B":v==="x"?"#7F1D1D":v==="w"?"#78350F":v==="pdf"?"#3B1F6A":v==="imp"?"#0A3A22":v==="cum"?"#2E1A5E":"#152030",
+    color:      v==="p"?"#BAE6FD":v==="s"?"#A7F3D0":v==="x"?"#FCA5A5":v==="w"?"#FDE68A":v==="pdf"?"#DDD6FE":v==="imp"?"#86EFAC":v==="cum"?"#C4B5FD":"#7EB8D4",
+  }),
+
+  /* ── Cards ── */
+  card:  { background: "#0E1B2A", border: "1px solid #1A3450", borderRadius: "6px", marginBottom: "8px", overflow: "hidden" },
+  cHdr:  { padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#0B1622" },
+  cBody: { padding: "13px 14px" },
+
+  /* ── Sub-sections ── */
+  sub:   { background: "#070F1C", border: "1px solid #172E46", borderRadius: "5px", padding: "10px 12px", marginBottom: "10px" },
+  subT:  { fontSize: "9px", fontWeight: "700", color: "#0090B8", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" },
+
+  /* ── Tables ── */
+  th:    { background: "#050D18", padding: "4px 7px", textAlign: "left", color: "#2D5270", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #172E46", whiteSpace: "nowrap" },
+  thR:   { background: "#150506", padding: "4px 7px", textAlign: "right", color: "#7A4040", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #172E46", whiteSpace: "nowrap" },
+  td:    { padding: "4px 5px", borderBottom: "1px solid #0D1C2C", verticalAlign: "top" },
+  tdR:   { padding: "4px 5px", borderBottom: "1px solid #0D1C2C", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" },
+  sumRow:(s) => ({ background: s==="over"?"#280A0A":s==="under"?"#191300":"#051A0C", fontWeight: "700" }),
+
+  /* ── Badges — pill shape per design system ── */
+  bdg:   (c) => ({ background: c+"28", color: c, padding: "2px 9px", borderRadius: "9999px", fontSize: "10px", fontWeight: "700", fontFamily: "monospace", whiteSpace: "nowrap" }),
+
+  /* ── Misc ── */
+  mono:  { fontFamily: "monospace", fontSize: "11px" },
+  empty: { textAlign: "center", color: "#1E3A58", padding: "32px", fontSize: "12px", fontStyle: "italic" },
+
+  /* ── Alerts — e=error  o=ok  (default)=warning ── */
+  alert: (t) => ({
+    background: t==="e"?"#160808":t==="o"?"#051509":"#161000",
+    border:     `1px solid ${t==="e"?"#5C2020":t==="o"?"#0A5228":"#5C4200"}`,
+    borderRadius: "6px", padding: "10px 14px", marginBottom: "10px",
+    fontSize: "11px", lineHeight: "1.65",
+    color: t==="e"?"#FCA5A5":t==="o"?"#86EFAC":"#FDE68A",
+  }),
+
+  /* ── Modal ── */
+  modal:    { position: "fixed", inset: 0, background: "#000000D0", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
+  modalBox: { background: "#101C2C", border: "1px solid #C04820", borderRadius: "10px", padding: "24px 28px", maxWidth: "400px", width: "90%", boxShadow: "0 16px 48px rgba(0,0,0,0.5)" },
 };
 
-function buildC(T) { return {
-  app:   { fontFamily:"'Inter','Segoe UI',system-ui,sans-serif", fontSize:"13px", background:T.appBg, color:T.bodyText, minHeight:"100vh", display:"flex", flexDirection:"column" },
-  hdr:   { background:T.hdrBg, borderBottom:T.hdrBorder, padding:"11px 18px", display:"flex", alignItems:"center", gap:12 },
-  hdrT:  { fontSize:"15px", fontWeight:"700", color:T.hdrTitle, letterSpacing:"-0.01em" },
-  hdrS:  { fontSize:"10px", color:T.hdrSub, marginTop:3, letterSpacing:"0.02em" },
-  tabs:  { display:"flex", background:T.tabsBg, borderBottom:`1px solid ${T.tabsBorder}` },
-  tab:   (a) => ({ padding:"9px 20px", cursor:"pointer", fontSize:"12px", fontWeight:"600", border:"none", background:"transparent", color:a?T.tabOn:T.tabOff, borderBottom:a?`2px solid ${T.tabOn}`:"2px solid transparent", letterSpacing:"0.01em", transition:"color 150ms" }),
-  body:  { flex:1, overflowY:"auto", padding:"16px 18px", background:T.bodyPadBg },
-  sec:   { background:T.secBg, border:`1px solid ${T.secBorder}`, borderRadius:8, padding:"14px 16px", marginBottom:14, boxShadow:T.secShadow },
-  sT:    { fontSize:"10px", fontWeight:"700", color:T.sectionTitle, textTransform:"uppercase", letterSpacing:"1.2px", marginBottom:12, paddingBottom:7, borderBottom:`1px solid ${T.sectionRule}` },
-  row:   { display:"flex", flexWrap:"wrap", gap:10, marginBottom:9 },
-  lbl:   { fontSize:"10px", color:T.label, textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:4, display:"block", fontWeight:"600" },
-  inp:   { background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:4, color:T.inputText, padding:"5px 8px", fontSize:"12px", fontFamily:"'Courier New',monospace", outline:"none", width:"100%", boxSizing:"border-box", boxShadow:T.inputShadow },
-  inpG:  { background:T.inputGreenBg, border:`1px solid ${T.inputGreenBorder}`, borderRadius:4, color:T.inputGreenText, padding:"5px 8px", fontSize:"12px", fontFamily:"'Courier New',monospace", outline:"none", width:"100%", boxSizing:"border-box", boxShadow:T.inputShadow },
-  inpR:  { background:T.inputRedBg, border:`1px solid ${T.inputRedBorder}`, borderRadius:4, color:T.inputRedText, padding:"5px 8px", fontSize:"12px", fontFamily:"'Courier New',monospace", outline:"none", width:"100%", boxSizing:"border-box", boxShadow:T.inputShadow },
-  sel:   { background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:4, color:T.inputText, padding:"5px 8px", fontSize:"11px", outline:"none", width:"100%", boxSizing:"border-box", boxShadow:T.inputShadow },
-  btn:   (v="d") => ({ padding:"5px 12px", borderRadius:5, border:"none", cursor:"pointer", fontSize:"11px", fontWeight:"600", letterSpacing:"0.02em", background:v==="p"?"#0E4F78":v==="s"?"#064E3B":v==="x"?"#7F1D1D":v==="w"?"#78350F":v==="pdf"?"#3B1F6A":v==="imp"?"#0A3A22":v==="cum"?"#2E1A5E":T.buttonBaseBg, color:v==="p"?"#BAE6FD":v==="s"?"#A7F3D0":v==="x"?"#FCA5A5":v==="w"?"#FDE68A":v==="pdf"?"#DDD6FE":v==="imp"?"#86EFAC":v==="cum"?"#C4B5FD":T.buttonBaseText }),
-  card:  { background:T.cardBg, border:`1px solid ${T.cardBorder}`, borderRadius:6, marginBottom:8, overflow:"hidden" },
-  cHdr:  { padding:"10px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", background:T.cardHeadBg },
-  cBody: { padding:"13px 14px" },
-  sub:   { background:T.subBg, border:`1px solid ${T.subBorder}`, borderRadius:5, padding:"10px 12px", marginBottom:10 },
-  subT:  { fontSize:"9px", fontWeight:"700", color:T.subTitle, textTransform:"uppercase", letterSpacing:"1px", marginBottom:8 },
-  th:    { background:T.thBg, padding:"4px 7px", textAlign:"left", color:T.thColor, fontWeight:"700", fontSize:"10px", borderBottom:`1px solid ${T.sectionRule}`, whiteSpace:"nowrap" },
-  thR:   { background:T.thDangerBg, padding:"4px 7px", textAlign:"right", color:T.thDangerColor, fontWeight:"700", fontSize:"10px", borderBottom:`1px solid ${T.sectionRule}`, whiteSpace:"nowrap" },
-  td:    { padding:"4px 5px", borderBottom:`1px solid ${T.tdBorder}`, verticalAlign:"top" },
-  tdR:   { padding:"4px 5px", borderBottom:`1px solid ${T.tdBorder}`, verticalAlign:"top", textAlign:"right", fontFamily:"monospace" },
-  sumRow:(s) => ({ background:s==="over"?T.sumOver:s==="under"?T.sumUnder:T.sumOk, fontWeight:"700" }),
-  bdg:   (c) => ({ background:c+"28", color:T.badgeText, padding:"2px 9px", borderRadius:9999, fontSize:"10px", fontWeight:"700", fontFamily:"monospace", whiteSpace:"nowrap" }),
-  mono:  { fontFamily:"monospace", fontSize:"11px", color:T.monoText },
-  empty: { textAlign:"center", color:T.empty, padding:32, fontSize:"12px", fontStyle:"italic" },
-  alert: (t) => ({ background:t==="e"?T.alertErrBg:t==="o"?T.alertOkBg:T.alertWarnBg, border:`1px solid ${t==="e"?T.alertErrBorder:t==="o"?T.alertOkBorder:T.alertWarnBorder}`, borderRadius:6, padding:"10px 14px", marginBottom:10, fontSize:"11px", lineHeight:"1.65", color:t==="e"?T.alertErrText:t==="o"?T.alertOkText:T.alertWarnText }),
-  modal:    { position:"fixed", inset:0, background:T.modalOverlay, backdropFilter:"blur(2px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 },
-  modalBox: { background:T.modalBg, border:`1px solid ${T.modalBorder}`, borderRadius:10, padding:"24px 28px", maxWidth:"400px", width:"90%", boxShadow:"0 16px 48px rgba(0,0,0,0.2)" },
-}; }
-
-/* C viene costruito dentro il componente con useMemo */
 /* ════ FIELD ════ */
-function F({ C, T, label, value, onChange, ph="", w="140px", full=false, opts=null, green=false, red=false, note="" }) {
+function F({ label, value, onChange, ph="", w="140px", full=false, opts=null, green=false, red=false, note="" }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", flex: full?"1 1 100%":`1 1 ${w}`, minWidth: full?"180px":w }}>
-      <label style={C.lbl}>{label}{note&&<span style={{color:T.ok,marginLeft:"5px",fontWeight:"700",fontSize:"9px"}}>{note}</span>}</label>
+      <label style={C.lbl}>{label}{note&&<span style={{color:"#34D399",marginLeft:"5px",fontWeight:"700",fontSize:"9px"}}>{note}</span>}</label>
       {opts
         ? <select style={C.sel} value={value} onChange={e=>onChange(e.target.value)}>{opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>
         : <input style={red?C.inpR:green?C.inpG:C.inp} value={value} onChange={e=>onChange(e.target.value)} placeholder={ph}/>}
@@ -590,11 +529,6 @@ const EMPTY_A = { AnnoMeseDenuncia:"", CFAzienda:"", RagSocAzienda:"", PRGAZIEND
 ════════════════════════════════════════════════════════════ */
 export default function UniEmensBuilder() {
   const [tab, setTab] = useState(0);
-  const [theme, setTheme] = useState("dark");
-  const T = PALETTE[theme];
-  const C = useMemo(() => buildC(T), [theme]); // eslint-disable-line
-  /* Fld = F con C e T pre-iniettati — evita prop drilling su ogni call site */
-  const Fld = (props) => <Fld C={C} T={T} {...props} />;
   const [m, setM] = useState(EMPTY_M);
   const [a, setA] = useState(EMPTY_A);
   const [dips, setDips] = useState([]);
@@ -801,30 +735,30 @@ export default function UniEmensBuilder() {
       <div style={C.sub}>
         <div style={C.subT}>Periodo e Causale</div>
         <div style={C.row}>
-          <Fld label="Causale variazione" value={p.CausaleVariazione} onChange={v=>updPer(dip.id,p.id,"CausaleVariazione",v)} opts={CAUSALE} w="230px"/>
-          <Fld label="Giorno inizio" value={p.GiornoInizio} onChange={v=>updPer(dip.id,p.id,"GiornoInizio",v)} ph="YYYY-MM-DD" w="130px"/>
-          <Fld label="Giorno fine" value={p.GiornoFine} onChange={v=>updPer(dip.id,p.id,"GiornoFine",v)} ph="YYYY-MM-DD" w="130px"/>
-          <Fld label="Cod. cessazione" value={p.CodiceCessazione} onChange={v=>updPer(dip.id,p.id,"CodiceCessazione",v)} ph="es. 3" w="108px"/>
+          <F label="Causale variazione" value={p.CausaleVariazione} onChange={v=>updPer(dip.id,p.id,"CausaleVariazione",v)} opts={CAUSALE} w="230px"/>
+          <F label="Giorno inizio" value={p.GiornoInizio} onChange={v=>updPer(dip.id,p.id,"GiornoInizio",v)} ph="YYYY-MM-DD" w="130px"/>
+          <F label="Giorno fine" value={p.GiornoFine} onChange={v=>updPer(dip.id,p.id,"GiornoFine",v)} ph="YYYY-MM-DD" w="130px"/>
+          <F label="Cod. cessazione" value={p.CodiceCessazione} onChange={v=>updPer(dip.id,p.id,"CodiceCessazione",v)} ph="es. 3" w="108px"/>
         </div>
       </div>
 
       <div style={C.sub}>
         <div style={C.subT}>InquadramentoLavPA</div>
         <div style={C.row}>
-          <Fld label="Tipo impiego" value={p.TipoImpiego} onChange={v=>updPer(dip.id,p.id,"TipoImpiego",v)} opts={TIPO_IMPIEGO} w="198px"/>
-          <Fld label="Tipo servizio" value={p.TipoServizio} onChange={v=>updPer(dip.id,p.id,"TipoServizio",v)} opts={TIPO_SERVIZIO} w="178px"/>
-          <Fld label="Contratto" value={p.Contratto} onChange={v=>updPer(dip.id,p.id,"Contratto",v)} ph="RALN" w="86px"/>
-          <Fld label="Qualifica" value={p.Qualifica} onChange={v=>updPer(dip.id,p.id,"Qualifica",v)} ph="042000" w="106px"/>
-          <Fld label="Regime fine servizio" value={p.RegimeFineServizio} onChange={v=>updPer(dip.id,p.id,"RegimeFineServizio",v)} opts={REGIME_FS} w="178px"/>
+          <F label="Tipo impiego" value={p.TipoImpiego} onChange={v=>updPer(dip.id,p.id,"TipoImpiego",v)} opts={TIPO_IMPIEGO} w="198px"/>
+          <F label="Tipo servizio" value={p.TipoServizio} onChange={v=>updPer(dip.id,p.id,"TipoServizio",v)} opts={TIPO_SERVIZIO} w="178px"/>
+          <F label="Contratto" value={p.Contratto} onChange={v=>updPer(dip.id,p.id,"Contratto",v)} ph="RALN" w="86px"/>
+          <F label="Qualifica" value={p.Qualifica} onChange={v=>updPer(dip.id,p.id,"Qualifica",v)} ph="042000" w="106px"/>
+          <F label="Regime fine servizio" value={p.RegimeFineServizio} onChange={v=>updPer(dip.id,p.id,"RegimeFineServizio",v)} opts={REGIME_FS} w="178px"/>
         </div>
         <div style={{...C.row,alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
             <input type="checkbox" checked={p.hasPartTime} onChange={e=>updPer(dip.id,p.id,"hasPartTime",e.target.checked)} style={{cursor:"pointer"}}/>
-            <span style={{fontSize:"11px",color:T.monoText}}>Part-time</span>
+            <span style={{fontSize:"11px",color:"#7AB8D4"}}>Part-time</span>
           </div>
           {p.hasPartTime&&<>
-            <Fld label="Tipo PT" value={p.TipoPartTime} onChange={v=>updPer(dip.id,p.id,"TipoPartTime",v)} opts={TIPO_PT} w="178px"/>
-            <Fld label="% (es. 50000)" value={p.PercPartTime} onChange={v=>updPer(dip.id,p.id,"PercPartTime",v)} ph="50000" w="138px"/>
+            <F label="Tipo PT" value={p.TipoPartTime} onChange={v=>updPer(dip.id,p.id,"TipoPartTime",v)} opts={TIPO_PT} w="178px"/>
+            <F label="% (es. 50000)" value={p.PercPartTime} onChange={v=>updPer(dip.id,p.id,"PercPartTime",v)} ph="50000" w="138px"/>
           </>}
         </div>
       </div>
@@ -832,29 +766,29 @@ export default function UniEmensBuilder() {
       <div style={C.sub}>
         <div style={C.subT}>GestPensionistica — CPDEL (CodGestione 2)</div>
         <div style={C.row}>
-          <Fld label="Imponibile CPDEL" value={p.ImpCPDEL} onChange={v=>updPer(dip.id,p.id,"ImpCPDEL",v)} ph="0,00" w="136px"/>
-          <Fld label="Contributo CPDEL" value={p.ContribCPDEL} onChange={v=>updPer(dip.id,p.id,"ContribCPDEL",v)} ph="0,00" w="136px"/>
-          <Fld label="Contrib. 1%" value={p.Contrib1Perc} onChange={v=>updPer(dip.id,p.id,"Contrib1Perc",v)} ph="0,00" w="96px"/>
-          <Fld label="Stipendio tabellare" value={p.StipTabellare} onChange={v=>updPer(dip.id,p.id,"StipTabellare",v)} ph="0,00" w="136px"/>
-          <Fld label="Retrib. anzianità" value={p.RetribAnzianita} onChange={v=>updPer(dip.id,p.id,"RetribAnzianita",v)} ph="0,00" w="126px"/>
+          <F label="Imponibile CPDEL" value={p.ImpCPDEL} onChange={v=>updPer(dip.id,p.id,"ImpCPDEL",v)} ph="0,00" w="136px"/>
+          <F label="Contributo CPDEL" value={p.ContribCPDEL} onChange={v=>updPer(dip.id,p.id,"ContribCPDEL",v)} ph="0,00" w="136px"/>
+          <F label="Contrib. 1%" value={p.Contrib1Perc} onChange={v=>updPer(dip.id,p.id,"Contrib1Perc",v)} ph="0,00" w="96px"/>
+          <F label="Stipendio tabellare" value={p.StipTabellare} onChange={v=>updPer(dip.id,p.id,"StipTabellare",v)} ph="0,00" w="136px"/>
+          <F label="Retrib. anzianità" value={p.RetribAnzianita} onChange={v=>updPer(dip.id,p.id,"RetribAnzianita",v)} ph="0,00" w="126px"/>
         </div>
       </div>
 
       <div style={C.sub}>
         <div style={C.subT}>GestPrevidenziale — TFS / TFR (CodGestione 6)</div>
         <div style={C.row}>
-          <Fld label="Regime" value={p.regimeTFS} onChange={v=>updPer(dip.id,p.id,"regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="146px"/>
-          <Fld label={`Imponibile ${p.regimeTFS}`} value={p.ImpTFS} onChange={v=>updPer(dip.id,p.id,"ImpTFS",v)} ph="0,00" w="136px"/>
-          <Fld label={`Contributo ${p.regimeTFS}`} value={p.ContribTFS} onChange={v=>updPer(dip.id,p.id,"ContribTFS",v)} ph="0,00" w="136px"/>
+          <F label="Regime" value={p.regimeTFS} onChange={v=>updPer(dip.id,p.id,"regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="146px"/>
+          <F label={`Imponibile ${p.regimeTFS}`} value={p.ImpTFS} onChange={v=>updPer(dip.id,p.id,"ImpTFS",v)} ph="0,00" w="136px"/>
+          <F label={`Contributo ${p.regimeTFS}`} value={p.ContribTFS} onChange={v=>updPer(dip.id,p.id,"ContribTFS",v)} ph="0,00" w="136px"/>
         </div>
       </div>
 
       <div style={C.sub}>
         <div style={C.subT}>GestCredito — Fondo Credito (CodGestione 9)</div>
         <div style={C.row}>
-          <Fld label="Imponibile credito" value={p.ImpCredito} onChange={v=>updPer(dip.id,p.id,"ImpCredito",v)} ph="0,00" w="136px"
+          <F label="Imponibile credito" value={p.ImpCredito} onChange={v=>updPer(dip.id,p.id,"ImpCredito",v)} ph="0,00" w="136px"
             green={!!p.ImpCredito&&p.ImpCredito===p.ImpCPDEL} note={p.ImpCredito&&p.ImpCredito===p.ImpCPDEL?"↔ CPDEL":""}/>
-          <Fld label="Contributo credito" value={p.ContribCredito} onChange={v=>updPer(dip.id,p.id,"ContribCredito",v)} ph="0,00" w="136px"/>
+          <F label="Contributo credito" value={p.ContribCredito} onChange={v=>updPer(dip.id,p.id,"ContribCredito",v)} ph="0,00" w="136px"/>
         </div>
       </div>
 
@@ -863,7 +797,7 @@ export default function UniEmensBuilder() {
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"7px"}}>
           <div style={C.subT}>Lista Contributi — Ente Versante ({p.enteVersante.length} righe)</div>
           <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
-            <span style={{fontSize:"9px",color:T.helperGreen}}>+Riga = coppia TC1+TC9</span>
+            <span style={{fontSize:"9px",color:"#1A5A38"}}>+Riga = coppia TC1+TC9</span>
             <button style={C.btn()} onClick={()=>addEV(dip.id,p.id)}>+ Riga</button>
           </div>
         </div>
@@ -903,8 +837,8 @@ export default function UniEmensBuilder() {
         </div>
 
         {p.ImpCPDEL&&(
-          <div style={{marginTop:"9px",background:T.congrBg,border:`1px solid ${T.congrBorder}`,borderRadius:"5px",overflow:"hidden"}}>
-            <div style={{background:T.congrHeadBg,padding:"5px 9px",fontSize:"9px",fontWeight:"700",color:T.congrHeadText,textTransform:"uppercase",letterSpacing:"1px"}}>
+          <div style={{marginTop:"9px",background:"#050D1A",border:"1px solid #112840",borderRadius:"5px",overflow:"hidden"}}>
+            <div style={{background:"#070F1E",padding:"5px 9px",fontSize:"9px",fontWeight:"700",color:"#007A9E",textTransform:"uppercase",letterSpacing:"1px"}}>
               Verifica Congruità Somme EV — confronto in tempo reale
             </div>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
@@ -922,31 +856,31 @@ export default function UniEmensBuilder() {
                 <tr style={C.sumRow(over171?"over":under171?"under":"ok")}>
                   <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over171?"#FCA5A5":under171?"#FDE68A":"#4ADE80"}}>00171I</span> Σ Imponibile TC1</td>
                   <td style={{...C.tdR,color:over171?"#FCA5A5":under171?"#FDE68A":"#86EFAC",fontWeight:"700"}}>{toIt(String(sumImpTC1))}</td>
-                  <td style={{...C.tdR,color:T.monoText}}>{toIt(p.ImpCPDEL)}</td>
+                  <td style={{...C.tdR,color:"#7AB8D4"}}>{toIt(p.ImpCPDEL)}</td>
                   <td style={{...C.tdR,color:over171?"#EF4444":under171?"#F59E0B":"#4ADE80",fontWeight:"700"}}>{toIt(String(round2(sumImpTC1-impCPDEL)))}</td>
-                  <td style={C.td}>{over171?<span style={{color:T.err,fontWeight:"700"}}>⚠ ECCESSO</span>:under171?<span style={{color:T.warn,fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:T.ok}}>✓ OK</span>}</td>
+                  <td style={C.td}>{over171?<span style={{color:"#EF4444",fontWeight:"700"}}>⚠ ECCESSO</span>:under171?<span style={{color:"#F59E0B",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#4ADE80"}}>✓ OK</span>}</td>
                 </tr>
                 {/* 00032I */}
                 {p.ImpCredito&&(
                   <tr style={C.sumRow(over032?"over":under032?"under":"ok")}>
                     <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032?"#FCA5A5":under032?"#FDE68A":"#4ADE80"}}>00032I</span> Σ Imponibile TC9</td>
                     <td style={{...C.tdR,color:over032?"#FCA5A5":under032?"#FDE68A":"#86EFAC",fontWeight:"700"}}>{toIt(String(sumImpTC9))}</td>
-                    <td style={{...C.tdR,color:T.monoText}}>{toIt(p.ImpCredito)}</td>
+                    <td style={{...C.tdR,color:"#7AB8D4"}}>{toIt(p.ImpCredito)}</td>
                     <td style={{...C.tdR,color:over032?"#EF4444":under032?"#F59E0B":"#4ADE80",fontWeight:"700"}}>{toIt(String(round2(sumImpTC9-impCred)))}</td>
-                    <td style={C.td}>{over032?<span style={{color:T.err,fontWeight:"700"}}>⚠ ECCESSO</span>:under032?<span style={{color:T.warn,fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:T.ok}}>✓ OK</span>}</td>
+                    <td style={C.td}>{over032?<span style={{color:"#EF4444",fontWeight:"700"}}>⚠ ECCESSO</span>:under032?<span style={{color:"#F59E0B",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#4ADE80"}}>✓ OK</span>}</td>
                   </tr>
                 )}
                 {/* 00172I */}
                 <tr style={C.sumRow(over172?"over":under172?"under":"ok")}>
                   <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#FCA5A5":under172?"#FDE68A":"#4ADE80"}}>00172I</span> Σ Contributo TC1+TC5</td>
                   <td style={{...C.tdR,color:over172?"#FCA5A5":under172?"#FDE68A":"#86EFAC",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
-                  <td style={{...C.tdR,color:T.monoText}}>{toIt(String(limitContrib))} (CPDEL+1%)</td>
+                  <td style={{...C.tdR,color:"#7AB8D4"}}>{toIt(String(limitContrib))} (CPDEL+1%)</td>
                   <td style={{...C.tdR,color:over172?"#EF4444":under172?"#F59E0B":"#4ADE80",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
-                  <td style={C.td}>{over172?<span style={{color:T.err,fontWeight:"700"}}>⚠ ECCESSO</span>:under172?<span style={{color:T.warn,fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:T.ok}}>✓ OK</span>}</td>
+                  <td style={C.td}>{over172?<span style={{color:"#EF4444",fontWeight:"700"}}>⚠ ECCESSO</span>:under172?<span style={{color:"#F59E0B",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#4ADE80"}}>✓ OK</span>}</td>
                 </tr>
               </tbody>
             </table>
-            <div style={{fontSize:"9px",color:T.footText,padding:"4px 9px"}}>
+            <div style={{fontSize:"9px",color:"#1E4A64",padding:"4px 9px"}}>
               Valori negativi = margine residuo. Valori positivi = eccesso da correggere prima del passaggio al sw INPS.
             </div>
           </div>
@@ -961,11 +895,11 @@ export default function UniEmensBuilder() {
       <div style={C.sub}>
         <div style={C.subT}>Anagrafica Lavoratore (D0)</div>
         <div style={C.row}>
-          <Fld label="Codice Fiscale" value={dip.CFLavoratore} onChange={v=>updDip(dip.id,"CFLavoratore",v)} ph="XYZABC00X00X000X" w="176px"/>
-          <Fld label="Cognome" value={dip.Cognome} onChange={v=>updDip(dip.id,"Cognome",v)} w="146px"/>
-          <Fld label="Nome" value={dip.Nome} onChange={v=>updDip(dip.id,"Nome",v)} w="126px"/>
-          <Fld label="Codice Comune" value={dip.CodiceComune} onChange={v=>updDip(dip.id,"CodiceComune",v)} ph="F943" w="126px"/>
-          <Fld label="CAP" value={dip.CAP} onChange={v=>updDip(dip.id,"CAP",v)} ph="96017" w="70px"/>
+          <F label="Codice Fiscale" value={dip.CFLavoratore} onChange={v=>updDip(dip.id,"CFLavoratore",v)} ph="XYZABC00X00X000X" w="176px"/>
+          <F label="Cognome" value={dip.Cognome} onChange={v=>updDip(dip.id,"Cognome",v)} w="146px"/>
+          <F label="Nome" value={dip.Nome} onChange={v=>updDip(dip.id,"Nome",v)} w="126px"/>
+          <F label="Codice Comune" value={dip.CodiceComune} onChange={v=>updDip(dip.id,"CodiceComune",v)} ph="F943" w="126px"/>
+          <F label="CAP" value={dip.CAP} onChange={v=>updDip(dip.id,"CAP",v)} ph="96017" w="70px"/>
         </div>
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"7px"}}>
@@ -981,7 +915,7 @@ export default function UniEmensBuilder() {
           <div style={C.cHdr} onClick={()=>setXPer(xPer===p.id?null:p.id)}>
             <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
               <span style={C.bdg("#00AEEF")}>caus.{p.CausaleVariazione}</span>
-              <span style={{...C.mono,color:T.monoText}}>{p.GiornoInizio||"???"} → {p.GiornoFine||"???"}</span>
+              <span style={{...C.mono,color:"#7AB8D4"}}>{p.GiornoInizio||"???"} → {p.GiornoFine||"???"}</span>
               <span style={{...C.bdg("#10B981"),fontSize:"9px"}}>{p.enteVersante.length} EV</span>
               {p.CodiceCessazione&&<span style={{...C.bdg("#D97706"),fontSize:"9px"}}>cess.{p.CodiceCessazione}</span>}
               {hasWarn(p)&&<span style={{...C.bdg("#EF4444"),fontSize:"9px"}}>⚠ CONGRUITÀ</span>}
@@ -1013,9 +947,9 @@ export default function UniEmensBuilder() {
           <div style={{display:"flex",gap:"5px",marginBottom:"13px"}}>
             {["1. Periodo e Inquadramento","2. Totali per anno","3. Griglia EV — verifica e conferma"].map((t,i)=>(
               <div key={i} style={{flex:1,padding:"5px 8px",borderRadius:"5px",fontSize:"10px",fontWeight:"700",
-                background:step===i+1?T.stepActive:step>i+1?T.stepDone:T.stepIdle,
-                color:step===i+1?T.stepActiveText:step>i+1?T.stepDoneText:T.stepIdleText,
-                borderBottom:step===i+1?`2px solid ${T.stepActiveBorder}`:step>i+1?`2px solid ${T.stepDoneBorder}`:"2px solid transparent"}}>
+                background:step===i+1?"#2E1860":step>i+1?"#053A18":"#0C1520",
+                color:step===i+1?"#C4B5FD":step>i+1?"#4ADE80":"#2A4060",
+                borderBottom:step===i+1?"2px solid #8B5CF6":step>i+1?"2px solid #16803A":"2px solid transparent"}}>
                 {t}
               </div>
             ))}
@@ -1029,9 +963,9 @@ export default function UniEmensBuilder() {
             <div style={C.sub}>
               <div style={C.subT}>Periodo</div>
               <div style={C.row}>
-                <Fld label="Dal (GiornoInizio)" value={inq.dateFrom} onChange={v=>setInq("dateFrom",v)} ph="YYYY-MM-DD" w="148px"/>
-                <Fld label="Al (GiornoFine)" value={inq.dateTo} onChange={v=>setInq("dateTo",v)} ph="YYYY-MM-DD" w="148px"/>
-                <Fld label="Cod. cessazione" value={inq.CodiceCessazione} onChange={v=>setInq("CodiceCessazione",v)} ph="es. 3" w="108px"/>
+                <F label="Dal (GiornoInizio)" value={inq.dateFrom} onChange={v=>setInq("dateFrom",v)} ph="YYYY-MM-DD" w="148px"/>
+                <F label="Al (GiornoFine)" value={inq.dateTo} onChange={v=>setInq("dateTo",v)} ph="YYYY-MM-DD" w="148px"/>
+                <F label="Cod. cessazione" value={inq.CodiceCessazione} onChange={v=>setInq("CodiceCessazione",v)} ph="es. 3" w="108px"/>
               </div>
               {inq.dateFrom&&inq.dateTo&&inq.dateFrom<=inq.dateTo&&(()=>{
                 const ml=buildMonthList(inq.dateFrom,inq.dateTo);
@@ -1044,28 +978,28 @@ export default function UniEmensBuilder() {
             <div style={C.sub}>
               <div style={C.subT}>InquadramentoLavPA</div>
               <div style={C.row}>
-                <Fld label="Tipo impiego" value={inq.TipoImpiego} onChange={v=>setInq("TipoImpiego",v)} opts={TIPO_IMPIEGO} w="196px"/>
-                <Fld label="Tipo servizio" value={inq.TipoServizio} onChange={v=>setInq("TipoServizio",v)} opts={TIPO_SERVIZIO} w="176px"/>
-                <Fld label="Contratto" value={inq.Contratto} onChange={v=>setInq("Contratto",v)} ph="RALN" w="86px"/>
-                <Fld label="Qualifica" value={inq.Qualifica} onChange={v=>setInq("Qualifica",v)} ph="042000" w="106px"/>
-                <Fld label="Regime FS" value={inq.RegimeFineServizio} onChange={v=>setInq("RegimeFineServizio",v)} opts={REGIME_FS} w="176px"/>
+                <F label="Tipo impiego" value={inq.TipoImpiego} onChange={v=>setInq("TipoImpiego",v)} opts={TIPO_IMPIEGO} w="196px"/>
+                <F label="Tipo servizio" value={inq.TipoServizio} onChange={v=>setInq("TipoServizio",v)} opts={TIPO_SERVIZIO} w="176px"/>
+                <F label="Contratto" value={inq.Contratto} onChange={v=>setInq("Contratto",v)} ph="RALN" w="86px"/>
+                <F label="Qualifica" value={inq.Qualifica} onChange={v=>setInq("Qualifica",v)} ph="042000" w="106px"/>
+                <F label="Regime FS" value={inq.RegimeFineServizio} onChange={v=>setInq("RegimeFineServizio",v)} opts={REGIME_FS} w="176px"/>
               </div>
               <div style={{...C.row,alignItems:"center"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
                   <input type="checkbox" checked={inq.hasPartTime} onChange={e=>setInq("hasPartTime",e.target.checked)} style={{cursor:"pointer"}}/>
-                  <span style={{fontSize:"11px",color:T.monoText}}>Part-time</span>                </div>
+                  <span style={{fontSize:"11px",color:"#7AB8D4"}}>Part-time</span>                </div>
                 {inq.hasPartTime&&<>
-                  <Fld label="Tipo PT" value={inq.TipoPartTime} onChange={v=>setInq("TipoPartTime",v)} opts={TIPO_PT} w="176px"/>
-                  <Fld label="% (es. 50000)" value={inq.PercPartTime} onChange={v=>setInq("PercPartTime",v)} ph="50000" w="136px"/>
+                  <F label="Tipo PT" value={inq.TipoPartTime} onChange={v=>setInq("TipoPartTime",v)} opts={TIPO_PT} w="176px"/>
+                  <F label="% (es. 50000)" value={inq.PercPartTime} onChange={v=>setInq("PercPartTime",v)} ph="50000" w="136px"/>
                 </>}
               </div>
               <div style={C.row}>
-                <Fld label="Regime TFS/TFR" value={inq.regimeTFS||"TFS"} onChange={v=>setInq("regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="156px"/>
-                <Fld label="Stipendio tabellare" value={inq.StipTabellare} onChange={v=>setInq("StipTabellare",v)} ph="0,00" w="136px"/>
-                <Fld label="Retrib. anzianità" value={inq.RetribAnzianita} onChange={v=>setInq("RetribAnzianita",v)} ph="0,00" w="136px"/>
+                <F label="Regime TFS/TFR" value={inq.regimeTFS||"TFS"} onChange={v=>setInq("regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="156px"/>
+                <F label="Stipendio tabellare" value={inq.StipTabellare} onChange={v=>setInq("StipTabellare",v)} ph="0,00" w="136px"/>
+                <F label="Retrib. anzianità" value={inq.RetribAnzianita} onChange={v=>setInq("RetribAnzianita",v)} ph="0,00" w="136px"/>
               </div>
             </div>
-            <div style={{fontSize:"9px",color:T.footText,padding:"4px 0"}}>Causale V1: 5 (fissa) · CF Azienda ed EnteVersante presi dall'intestazione corrente: <strong style={{color:T.sectionTitle}}>{a.CFAzienda||"—"}</strong></div>
+            <div style={{fontSize:"9px",color:"#2A4A64",padding:"4px 0"}}>Causale V1: 5 (fissa) · CF Azienda ed EnteVersante presi dall'intestazione corrente: <strong style={{color:"#4A8A9C"}}>{a.CFAzienda||"—"}</strong></div>
             <div style={{display:"flex",gap:"8px",justifyContent:"flex-end",marginTop:"8px"}}>
               <button style={C.btn()} onClick={()=>setCumuloModal(null)}>Annulla</button>
               <button style={{...C.btn("p"),opacity:(!inq.dateFrom||!inq.dateTo||inq.dateFrom>inq.dateTo)?0.4:1}}
@@ -1079,34 +1013,34 @@ export default function UniEmensBuilder() {
         const step2=(
           <>
             {stepBar}
-            <div style={{fontSize:"10px",color:T.footText,marginBottom:"8px"}}>
-              Periodo: <strong style={{color:T.annoYrText}}>{inq.dateFrom}</strong> → <strong style={{color:T.annoYrText}}>{inq.dateTo}</strong> · {months.length} mesi · Causale 5 (fissa)
+            <div style={{fontSize:"10px",color:"#4A7A60",marginBottom:"8px"}}>
+              Periodo: <strong style={{color:"#6EC99E"}}>{inq.dateFrom}</strong> → <strong style={{color:"#6EC99E"}}>{inq.dateTo}</strong> · {months.length} mesi · Causale 5 (fissa)
             </div>
             <div style={{overflowY:"auto",maxHeight:"52vh"}}>
               {yearRows.map(yr=>(
                 <div key={yr.anno} style={{...C.sub,marginBottom:"10px"}}>
-                  <div style={{...C.subT,fontSize:"10px",color:T.annoYrText,display:"flex",gap:"8px",alignItems:"center"}}>
+                  <div style={{...C.subT,fontSize:"10px",color:"#6EC99E",display:"flex",gap:"8px",alignItems:"center"}}>
                     <span>Anno {yr.anno}</span>
-                    <span style={{color:T.footText}}>{MESI_IT[yr.meseFrom]} → {MESI_IT[yr.meseTo]}</span>
-                    <span style={{background:T.annoPillBg,padding:"2px 8px",borderRadius:"9999px",color:T.annoPillText,fontSize:"9px"}}>
+                    <span style={{color:"#2E5040"}}>{MESI_IT[yr.meseFrom]} → {MESI_IT[yr.meseTo]}</span>
+                    <span style={{background:"#122434",padding:"2px 8px",borderRadius:"9999px",color:"#3A8090",fontSize:"9px"}}>
                       ÷{yr.divisor}{yr.divisor===13?" (annualità intera, dic=doppio)":` (${yr.meseTo-yr.meseFrom+1} mesi)`}
                     </span>
                   </div>
                   <div style={C.row}>
-                    <Fld label="Imp. CPDEL totale" value={yr.ImpCPDEL} onChange={v=>setYr(yr.anno,"ImpCPDEL",v)} ph="0,00" w="148px"/>
-                    <Fld label="Contrib. CPDEL totale" value={yr.ContribCPDEL} onChange={v=>setYr(yr.anno,"ContribCPDEL",v)} ph="0,00" w="148px"/>
-                    <Fld label="Contrib. 1% totale" value={yr.Contrib1Perc} onChange={v=>setYr(yr.anno,"Contrib1Perc",v)} ph="0,00 (opz.)" w="128px"/>
-                    <Fld label="Stip. tabellare" value={yr.StipTabellare} onChange={v=>setYr(yr.anno,"StipTabellare",v)} ph="0,00" w="118px"/>
-                    <Fld label="Retrib. anzianità" value={yr.RetribAnzianita} onChange={v=>setYr(yr.anno,"RetribAnzianita",v)} ph="0,00" w="118px"/>
+                    <F label="Imp. CPDEL totale" value={yr.ImpCPDEL} onChange={v=>setYr(yr.anno,"ImpCPDEL",v)} ph="0,00" w="148px"/>
+                    <F label="Contrib. CPDEL totale" value={yr.ContribCPDEL} onChange={v=>setYr(yr.anno,"ContribCPDEL",v)} ph="0,00" w="148px"/>
+                    <F label="Contrib. 1% totale" value={yr.Contrib1Perc} onChange={v=>setYr(yr.anno,"Contrib1Perc",v)} ph="0,00 (opz.)" w="128px"/>
+                    <F label="Stip. tabellare" value={yr.StipTabellare} onChange={v=>setYr(yr.anno,"StipTabellare",v)} ph="0,00" w="118px"/>
+                    <F label="Retrib. anzianità" value={yr.RetribAnzianita} onChange={v=>setYr(yr.anno,"RetribAnzianita",v)} ph="0,00" w="118px"/>
                   </div>
                   <div style={C.row}>
-                    <Fld label={`Imp. ${inq.regimeTFS||"TFS"} totale`} value={yr.ImpTFS} onChange={v=>setYr(yr.anno,"ImpTFS",v)} ph="0,00 (opz.)" w="148px"/>
-                    <Fld label={`Contrib. ${inq.regimeTFS||"TFS"} totale`} value={yr.ContribTFS} onChange={v=>setYr(yr.anno,"ContribTFS",v)} ph="0,00 (opz.)" w="148px"/>
-                    <Fld label="Contrib. Credito totale" value={yr.ContribCredito} onChange={v=>setYr(yr.anno,"ContribCredito",v)} ph="0,00" w="148px"/>
-                    <Fld label="Solidarietà L166/91 Imp." value={yr.ImpSol} onChange={v=>setYr(yr.anno,"ImpSol",v)} ph="0,00 (opz.)" w="148px"/>
-                    <Fld label="Solidarietà L166/91 Contrib." value={yr.ContribSol} onChange={v=>setYr(yr.anno,"ContribSol",v)} ph="0,00 (opz.)" w="148px"/>
+                    <F label={`Imp. ${inq.regimeTFS||"TFS"} totale`} value={yr.ImpTFS} onChange={v=>setYr(yr.anno,"ImpTFS",v)} ph="0,00 (opz.)" w="148px"/>
+                    <F label={`Contrib. ${inq.regimeTFS||"TFS"} totale`} value={yr.ContribTFS} onChange={v=>setYr(yr.anno,"ContribTFS",v)} ph="0,00 (opz.)" w="148px"/>
+                    <F label="Contrib. Credito totale" value={yr.ContribCredito} onChange={v=>setYr(yr.anno,"ContribCredito",v)} ph="0,00" w="148px"/>
+                    <F label="Solidarietà L166/91 Imp." value={yr.ImpSol} onChange={v=>setYr(yr.anno,"ImpSol",v)} ph="0,00 (opz.)" w="148px"/>
+                    <F label="Solidarietà L166/91 Contrib." value={yr.ContribSol} onChange={v=>setYr(yr.anno,"ContribSol",v)} ph="0,00 (opz.)" w="148px"/>
                   </div>
-                  <div style={{fontSize:"9px",color:T.annoNoteText}}>Imponibile Credito = Imponibile CPDEL (auto). Residuo di arrotondamento → ultima mensilità.</div>
+                  <div style={{fontSize:"9px",color:"#1A4830"}}>Imponibile Credito = Imponibile CPDEL (auto). Residuo di arrotondamento → ultima mensilità.</div>
                 </div>
               ))}
             </div>
@@ -1133,7 +1067,7 @@ export default function UniEmensBuilder() {
         const step3=(
           <>
             {stepBar}
-            <div style={{fontSize:"10px",color:T.footText,marginBottom:"7px",display:"flex",gap:"12px",alignItems:"center"}}>
+            <div style={{fontSize:"10px",color:"#4A7A60",marginBottom:"7px",display:"flex",gap:"12px",alignItems:"center"}}>
               <span>{evGrid.length} righe mese · {evGrid.length*2}{hasTFS?"+TFS":""}{hasC1?"+1%":""}{hasSol?"+Sol":""} EV totali generate</span>
               <span style={{color:"#1E5040"}}>Celle verdi = auto-sync con TC1 Imponibile (editabili)</span>
             </div>
@@ -1161,16 +1095,16 @@ export default function UniEmensBuilder() {
                     const ok1i=!parseIt(ref.ImpCPDEL)||Math.abs(s1i-parseIt(ref.ImpCPDEL))<=0.005;
                     const ok1c=!parseIt(ref.ContribCPDEL)||Math.abs(s1c-parseIt(ref.ContribCPDEL))<=0.005;
                     return[
-                      <tr key={`yh-${yr}`} style={{background:T.totRowBg}}>
+                      <tr key={`yh-${yr}`} style={{background:"#060D18"}}>
                         <td colSpan={4+(hasTFS?2:0)+(hasC1?2:0)+(hasSol?2:0)+2}
-                          style={{padding:"4px 8px",color:T.yrHdrText,fontWeight:"700",fontSize:"10px",letterSpacing:"0.5px"}}>
+                          style={{padding:"4px 8px",color:"#2E6078",fontWeight:"700",fontSize:"10px",letterSpacing:"0.5px"}}>
                           ── {yr} ── ÷{annoDivisor(yrRows)} {annoDivisor(yrRows)===13?"(annualità intera)":"(parziale)"}
                         </td>
                       </tr>,
                       ...yrRows.map(row=>(
-                        <tr key={row.id} style={{background:row.isDec?T.decRowBg:T.normRowBg}}>
-                          <td style={{...C.td,position:"sticky",left:0,background:row.isDec?T.decSticky:T.normSticky,
-                            color:row.isDec?T.decStickyText:T.normStickyText,fontFamily:"monospace",fontSize:"10px",whiteSpace:"nowrap",minWidth:"76px"}}>
+                        <tr key={row.id} style={{background:row.isDec?"#091808":"transparent"}}>
+                          <td style={{...C.td,position:"sticky",left:0,background:row.isDec?"#091808":"#0C1520",
+                            color:row.isDec?"#4ADE80":"#7AB8D4",fontFamily:"monospace",fontSize:"10px",whiteSpace:"nowrap",minWidth:"76px"}}>
                             {row.annoMese}{row.isDec?" ×2":""}
                           </td>
                           {tdEd(row.id,"tc1Imp",row.tc1Imp)}
@@ -1182,18 +1116,18 @@ export default function UniEmensBuilder() {
                           {hasSol&&<>{tdEd(row.id,"tcSImp",row.tcSImp,row.tcSImp===row.tc1Imp)}{tdEd(row.id,"tcSCont",row.tcSCont)}</>}
                         </tr>
                       )),
-                      <tr key={`ys-${yr}`} style={{background:ok1i&&ok1c?T.sumRowGoodBg:T.sumRowBadBg,fontWeight:"700"}}>
-                        <td style={{...C.td,color:T.sumRowNeutral,fontSize:"9px",fontFamily:"monospace",position:"sticky",left:0,background:"inherit"}}>Σ {yr}</td>
-                        <td style={{...C.tdR,color:ok1i?T.sumRowGoodText:T.sumRowBadText,fontSize:"10px"}}>{toIt(String(s1i))}</td>
-                        <td style={{...C.tdR,color:ok1c?T.sumRowGoodText:T.sumRowBadText,fontSize:"10px"}}>{toIt(String(s1c))}</td>
-                        <td style={{...C.tdR,color:T.sumRowNeutral,fontSize:"10px"}}>{toIt(String(s9i))}</td>
-                        <td style={{...C.tdR,fontSize:"10px",color:T.sumRowNeutral}}>{toIt(String(s9c))}</td>
-                        {hasTFS&&<><td style={{...C.tdR,fontSize:"10px",color:T.sumRowNeutral}}>{toIt(String(s7i))}</td><td style={{...C.tdR,fontSize:"10px",color:T.sumRowNeutral}}>{toIt(String(s7c))}</td></>}
-                        {hasC1&&<><td style={{...C.tdR,fontSize:"10px",color:T.sumRowNeutral}}>{toIt(String(s6i))}</td><td style={{...C.tdR,fontSize:"10px",color:T.sumRowNeutral}}>{toIt(String(s6c))}</td></>}
-                        {hasSol&&<><td style={{...C.tdR,fontSize:"10px",color:T.sumRowNeutral}}>{toIt(String(ssi))}</td><td style={{...C.tdR,fontSize:"10px",color:T.sumRowNeutral}}>{toIt(String(ssc))}</td></>}
+                      <tr key={`ys-${yr}`} style={{background:ok1i&&ok1c?"#051A0C":"#200808",fontWeight:"700"}}>
+                        <td style={{...C.td,color:"#3A8060",fontSize:"9px",fontFamily:"monospace",position:"sticky",left:0,background:"inherit"}}>Σ {yr}</td>
+                        <td style={{...C.tdR,color:ok1i?"#4ADE80":"#EF4444",fontSize:"10px"}}>{toIt(String(s1i))}</td>
+                        <td style={{...C.tdR,color:ok1c?"#4ADE80":"#EF4444",fontSize:"10px"}}>{toIt(String(s1c))}</td>
+                        <td style={{...C.tdR,color:"#3A8060",fontSize:"10px"}}>{toIt(String(s9i))}</td>
+                        <td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(s9c))}</td>
+                        {hasTFS&&<><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(s7i))}</td><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(s7c))}</td></>}
+                        {hasC1&&<><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(s6i))}</td><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(s6c))}</td></>}
+                        {hasSol&&<><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(ssi))}</td><td style={{...C.tdR,fontSize:"10px",color:"#3A8060"}}>{toIt(String(ssc))}</td></>}
                       </tr>,
                       (!ok1i||!ok1c)&&<tr key={`yw-${yr}`} style={{background:"#1A0808"}}>
-                        <td colSpan={4+(hasTFS?2:0)+(hasC1?2:0)+(hasSol?2:0)+2} style={{padding:"3px 8px",color:T.errSoft,fontSize:"9px"}}>
+                        <td colSpan={4+(hasTFS?2:0)+(hasC1?2:0)+(hasSol?2:0)+2} style={{padding:"3px 8px",color:"#FCA5A5",fontSize:"9px"}}>
                           ⚠ {!ok1i?`TC1 Imp Σ ${toIt(String(s1i))} ≠ ${toIt(ref.ImpCPDEL||"0,00")} (diff ${toIt(String(round2(s1i-parseIt(ref.ImpCPDEL))))})`:""}
                           {!ok1c?` | TC1 Cont Σ ${toIt(String(s1c))} ≠ ${toIt(ref.ContribCPDEL||"0,00")}`:""}
                         </td>
@@ -1201,15 +1135,15 @@ export default function UniEmensBuilder() {
                     ].filter(Boolean);
                   })}
                   {years.length>1&&(
-                    <tr style={{background:T.yrHdrBg,fontWeight:"700",borderTop:"2px solid #17304A"}}>
-                      <td style={{...C.td,color:T.totRowText,fontSize:"9px",position:"sticky",left:0,background:T.totRowBg}}>TOTALE</td>
-                      <td style={{...C.tdR,color:T.importStrongColor,fontSize:"10px"}}>{toIt(String(sumTot("tc1Imp")))}</td>
-                      <td style={{...C.tdR,color:T.importStrongColor,fontSize:"10px"}}>{toIt(String(sumTot("tc1Cont")))}</td>
-                      <td style={{...C.tdR,color:T.importStrongColor,fontSize:"10px"}}>{toIt(String(sumTot("tc9Imp")))}</td>
-                      <td style={{...C.tdR,color:T.importStrongColor,fontSize:"10px"}}>{toIt(String(sumTot("tc9Cont")))}</td>
-                      {hasTFS&&<><td style={{...C.tdR,color:T.importStrongColor,fontSize:"10px"}}>{toIt(String(sumTot("tc7Imp")))}</td><td style={{...C.tdR,color:T.importStrongColor,fontSize:"10px"}}>{toIt(String(sumTot("tc7Cont")))}</td></>}
-                      {hasC1&&<><td style={{...C.tdR,color:T.importStrongColor,fontSize:"10px"}}>{toIt(String(sumTot("tc6Imp")))}</td><td style={{...C.tdR,color:T.importStrongColor,fontSize:"10px"}}>{toIt(String(sumTot("tc6Cont")))}</td></>}
-                      {hasSol&&<><td style={{...C.tdR,color:T.importStrongColor,fontSize:"10px"}}>{toIt(String(sumTot("tcSImp")))}</td><td style={{...C.tdR,color:T.importStrongColor,fontSize:"10px"}}>{toIt(String(sumTot("tcSCont")))}</td></>}
+                    <tr style={{background:"#060D18",fontWeight:"700",borderTop:"2px solid #17304A"}}>
+                      <td style={{...C.td,color:"#00AEEF",fontSize:"9px",position:"sticky",left:0,background:"#060D18"}}>TOTALE</td>
+                      <td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc1Imp")))}</td>
+                      <td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc1Cont")))}</td>
+                      <td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc9Imp")))}</td>
+                      <td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc9Cont")))}</td>
+                      {hasTFS&&<><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc7Imp")))}</td><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc7Cont")))}</td></>}
+                      {hasC1&&<><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc6Imp")))}</td><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tc6Cont")))}</td></>}
+                      {hasSol&&<><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tcSImp")))}</td><td style={{...C.tdR,color:"#6EE7C4",fontSize:"10px"}}>{toIt(String(sumTot("tcSCont")))}</td></>}
                     </tr>
                   )}
                 </tbody>
@@ -1230,8 +1164,8 @@ export default function UniEmensBuilder() {
           <div style={C.modal}>
             <div style={{...C.modalBox,maxWidth:"940px",width:"96%",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
               <div style={{marginBottom:"11px",flexShrink:0}}>
-                <div style={{fontSize:"15px",fontWeight:"700",color:T.cumHeaderColor,marginBottom:"3px",letterSpacing:"-0.01em"}}>∑ Cumulo Mensilità</div>
-                <div style={{fontSize:"10px",color:T.cumSubColor}}>
+                <div style={{fontSize:"15px",fontWeight:"700",color:"#C4B5FD",marginBottom:"3px",letterSpacing:"-0.01em"}}>∑ Cumulo Mensilità</div>
+                <div style={{fontSize:"10px",color:"#4A3870"}}>
                   Causale 5 fissa · Distribuzione automatica su annualità (÷13 dicembre doppio) o periodo parziale (÷N mesi) · Residuo → ultima mensilità
                 </div>
               </div>
@@ -1250,9 +1184,9 @@ export default function UniEmensBuilder() {
         <div style={C.modal}>
           <div style={{...C.modalBox,maxWidth:"620px",width:"94%",maxHeight:"85vh",display:"flex",flexDirection:"column"}}>
             <div style={{marginBottom:"12px"}}>
-              <div style={{fontSize:"15px",fontWeight:"700",color:T.okSoft,marginBottom:"4px",letterSpacing:"-0.01em"}}>Importa XML</div>
-              <div style={{fontSize:"11px",color:T.footText,lineHeight:"1.6"}}>
-                <strong style={{color:T.importStrongColor}}>{importModal.azienda.RagSocAzienda || importModal.azienda.CFAzienda}</strong>
+              <div style={{fontSize:"15px",fontWeight:"700",color:"#86EFAC",marginBottom:"4px",letterSpacing:"-0.01em"}}>Importa XML</div>
+              <div style={{fontSize:"11px",color:"#3A7060",lineHeight:"1.6"}}>
+                <strong style={{color:"#6EE7C4"}}>{importModal.azienda.RagSocAzienda || importModal.azienda.CFAzienda}</strong>
                 {" "}· {importModal.azienda.AnnoMeseDenuncia}
                 {" "}· {importModal.isVariazione ? "Flusso VARIAZIONE" : "Flusso STANDARD"}
                 {" "}· {importModal.workers.length} dipendente{importModal.workers.length!==1?"i":""} trovato{importModal.workers.length!==1?"i":""}
@@ -1261,14 +1195,14 @@ export default function UniEmensBuilder() {
 
             {/* Errori/warning */}
             {importModal.errors.length>0&&(
-              <div style={{background:"#151000",border:"1px solid #5A4200",borderRadius:"5px",padding:"7px 10px",marginBottom:"10px",fontSize:"10px",color:T.warnSoft,lineHeight:"1.6",flexShrink:0}}>
+              <div style={{background:"#151000",border:"1px solid #5A4200",borderRadius:"5px",padding:"7px 10px",marginBottom:"10px",fontSize:"10px",color:"#FDE68A",lineHeight:"1.6",flexShrink:0}}>
                 <strong>⚠ Avvisi import ({importModal.errors.length}):</strong><br/>
                 {importModal.errors.map((e,i)=><span key={i}>{e}<br/></span>)}
               </div>
             )}
 
             {/* Lista dipendenti selezionabili */}
-            <div style={{fontSize:"10px",color:T.footText,marginBottom:"6px",flexShrink:0}}>
+            <div style={{fontSize:"10px",color:"#2E6050",marginBottom:"6px",flexShrink:0}}>
               Seleziona i dipendenti da importare:
               <button style={{...C.btn(),marginLeft:"8px",fontSize:"9px",padding:"2px 7px"}}
                 onClick={()=>setImportModal(p=>({...p,selected:new Set(p.workers.map(w=>w.id))}))}>
@@ -1297,7 +1231,7 @@ export default function UniEmensBuilder() {
                     const sel=importModal.selected.has(w.id);
                     const totEVw=w.periodi.reduce((s,p)=>s+p.enteVersante.length,0);
                     return(
-                      <tr key={w.id} style={{background:sel?T.importSelBg:"transparent",cursor:"pointer"}}
+                      <tr key={w.id} style={{background:sel?"#061812":"transparent",cursor:"pointer"}}
                         onClick={()=>setImportModal(p=>{
                           const s=new Set(p.selected);
                           sel?s.delete(w.id):s.add(w.id);
@@ -1306,10 +1240,10 @@ export default function UniEmensBuilder() {
                         <td style={{...C.td,textAlign:"center"}}>
                           <input type="checkbox" readOnly checked={sel} style={{cursor:"pointer"}}/>
                         </td>
-                        <td style={{...C.td,fontFamily:"monospace",fontSize:"11px",color:sel?T.importSelCF:T.footText}}>{w.CFLavoratore||"—"}</td>
-                        <td style={{...C.td,color:sel?T.importSelName:T.footText}}>{w.Cognome||"—"}</td>
-                        <td style={{...C.td,color:sel?T.importSelName:T.footText}}>{w.Nome||"—"}</td>
-                        <td style={{...C.td,color:T.footText}}>{w.CodiceComune||"—"}</td>
+                        <td style={{...C.td,fontFamily:"monospace",fontSize:"11px",color:sel?"#86EFAC":"#3A7060"}}>{w.CFLavoratore||"—"}</td>
+                        <td style={{...C.td,color:sel?"#A7F3D0":"#4A8A70"}}>{w.Cognome||"—"}</td>
+                        <td style={{...C.td,color:sel?"#A7F3D0":"#4A8A70"}}>{w.Nome||"—"}</td>
+                        <td style={{...C.td,color:"#3A7060"}}>{w.CodiceComune||"—"}</td>
                         <td style={{...C.td,textAlign:"center",...C.bdg("#10B981")}}>{w.periodi.length}</td>
                         <td style={{...C.td,textAlign:"center",...C.bdg("#0D9488")}}>{totEVw}</td>
                       </tr>
@@ -1320,7 +1254,7 @@ export default function UniEmensBuilder() {
             </div>
 
             {!importModal.isVariazione&&(
-              <div style={{fontSize:"10px",color:T.footText,marginBottom:"10px",padding:"6px 9px",background:T.importNoteBg,border:`1px solid ${T.importNoteBorder}`,borderRadius:"5px",flexShrink:0}}>
+              <div style={{fontSize:"10px",color:"#2E5848",marginBottom:"10px",padding:"6px 9px",background:"#050E0C",border:"1px solid #0E2A22",borderRadius:"5px",flexShrink:0}}>
                 File standard (non variazione): periodi E0 importati come V1 causale 5. EnteVersante pre-compilata con coppia TC1+TC9 vuota.
               </div>
             )}
@@ -1349,8 +1283,8 @@ export default function UniEmensBuilder() {
       {showReset&&(
         <div style={C.modal}>
           <div style={C.modalBox}>
-            <div style={{fontSize:"15px",fontWeight:"700",color:T.errSoft,marginBottom:"10px",letterSpacing:"-0.01em"}}>Nuova Lavorazione</div>
-            <div style={{fontSize:"12px",color:T.resetBodyColor,marginBottom:"18px",lineHeight:"1.65"}}>
+            <div style={{fontSize:"15px",fontWeight:"700",color:"#FCA5A5",marginBottom:"10px",letterSpacing:"-0.01em"}}>Nuova Lavorazione</div>
+            <div style={{fontSize:"12px",color:"#C8B090",marginBottom:"18px",lineHeight:"1.65"}}>
               Tutti i dati correnti (intestazione, dipendenti, periodi V1, EnteVersante) verranno cancellati.<br/>
               L'operazione non è reversibile.
             </div>
@@ -1368,10 +1302,7 @@ export default function UniEmensBuilder() {
           <div style={C.hdrS}>Fix 00124I · fix D0Key · fix AMEV · auto-sync TC1+TC9 · dedup · congruità EV real-time · PDF · Reset · Import XML · Cumulo Mensilità</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
-          <span style={{fontSize:"11px",color:T.statsText,fontVariantNumeric:"tabular-nums"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
-          <button style={{...C.btn(),padding:"5px 10px",fontSize:"11px"}} onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} title="Cambia tema">
-            {theme==="dark"?"☀ Light":"🌙 Dark"}
-          </button>
+          <span style={{fontSize:"11px",color:"#1E3A58",fontVariantNumeric:"tabular-nums"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
           <input ref={fileRef} type="file" accept=".xml" style={{display:"none"}} onChange={handleFileImport}/>
           <button style={{...C.btn("imp"),padding:"5px 12px"}} onClick={()=>fileRef.current?.click()}>⬆ Importa XML</button>
           <button style={{...C.btn("pdf"),padding:"5px 12px"}} onClick={()=>generatePDF(m,a,dips)}>⬛ PDF</button>
@@ -1389,30 +1320,30 @@ export default function UniEmensBuilder() {
           <div style={C.sec}>
             <div style={C.sT}>DatiMittente</div>
             <div style={C.row}>
-              <Fld label="CF Persona Mittente" value={m.CFPersonaMittente} onChange={mf("CFPersonaMittente")} ph="CF firmatario" w="176px"/>
-              <Fld label="Ragione Sociale Mittente" value={m.RagSocMittente} onChange={mf("RagSocMittente")} ph="COMUNE DI ..." full/>
+              <F label="CF Persona Mittente" value={m.CFPersonaMittente} onChange={mf("CFPersonaMittente")} ph="CF firmatario" w="176px"/>
+              <F label="Ragione Sociale Mittente" value={m.RagSocMittente} onChange={mf("RagSocMittente")} ph="COMUNE DI ..." full/>
             </div>
             <div style={C.row}>
-              <Fld label="CF Mittente (Ente)" value={m.CFMittente} onChange={mf("CFMittente")} ph="11 cifre" w="156px"/>
-              <Fld label="CF Softwarehouse" value={m.CFSoftwarehouse} onChange={mf("CFSoftwarehouse")} ph="11 cifre" w="156px"/>
-              <Fld label="Sede INPS" value={m.SedeINPS} onChange={mf("SedeINPS")} ph="7601" w="96px"/>
+              <F label="CF Mittente (Ente)" value={m.CFMittente} onChange={mf("CFMittente")} ph="11 cifre" w="156px"/>
+              <F label="CF Softwarehouse" value={m.CFSoftwarehouse} onChange={mf("CFSoftwarehouse")} ph="11 cifre" w="156px"/>
+              <F label="Sede INPS" value={m.SedeINPS} onChange={mf("SedeINPS")} ph="7601" w="96px"/>
             </div>
           </div>
           <div style={C.sec}>
             <div style={C.sT}>Azienda / ListaPosPA</div>
             <div style={C.row}>
-              <Fld label="Anno-Mese Denuncia" value={a.AnnoMeseDenuncia} onChange={af("AnnoMeseDenuncia")} ph="YYYY-MM" w="126px"/>
-              <Fld label="CF Azienda" value={a.CFAzienda} onChange={af("CFAzienda")} ph="11 cifre" w="156px"/>
-              <Fld label="Ragione Sociale Ente" value={a.RagSocAzienda} onChange={af("RagSocAzienda")} ph="COMUNE DI ..." full/>
+              <F label="Anno-Mese Denuncia" value={a.AnnoMeseDenuncia} onChange={af("AnnoMeseDenuncia")} ph="YYYY-MM" w="126px"/>
+              <F label="CF Azienda" value={a.CFAzienda} onChange={af("CFAzienda")} ph="11 cifre" w="156px"/>
+              <F label="Ragione Sociale Ente" value={a.RagSocAzienda} onChange={af("RagSocAzienda")} ph="COMUNE DI ..." full/>
             </div>
             <div style={C.row}>
-              <Fld label="PRGAZIENDA" value={a.PRGAZIENDA} onChange={af("PRGAZIENDA")} ph="00000" w="86px"/>
-              <Fld label="CF Rappresentante Firmatario" value={a.CFRappresentanteFirmatario} onChange={af("CFRappresentanteFirmatario")} ph="CF rep." w="196px"/>
-              <Fld label="Codice ISTAT" value={a.ISTAT} onChange={af("ISTAT")} ph="841110" w="146px"/>
-              <Fld label="Forma Giuridica" value={a.FormaGiuridica} onChange={af("FormaGiuridica")} opts={FG_OPTS} w="236px"/>
+              <F label="PRGAZIENDA" value={a.PRGAZIENDA} onChange={af("PRGAZIENDA")} ph="00000" w="86px"/>
+              <F label="CF Rappresentante Firmatario" value={a.CFRappresentanteFirmatario} onChange={af("CFRappresentanteFirmatario")} ph="CF rep." w="196px"/>
+              <F label="Codice ISTAT" value={a.ISTAT} onChange={af("ISTAT")} ph="841110" w="146px"/>
+              <F label="Forma Giuridica" value={a.FormaGiuridica} onChange={af("FormaGiuridica")} opts={FG_OPTS} w="236px"/>
             </div>
           </div>
-          <div style={{...C.sec,background:T.totRowBg,borderColor:"#0E2030",fontSize:"11px",color:T.tabHintText,lineHeight:"1.8"}}>
+          <div style={{...C.sec,background:"#060D18",borderColor:"#0E2030",fontSize:"11px",color:"#1A4060",lineHeight:"1.8"}}>
             <strong style={{color:"#005A78"}}>Pulsanti header:</strong>&nbsp;
             <span style={{color:"#3B1F6A",fontWeight:"700"}}>PDF</span> — rendiconto completo con semafori di congruità, apre finestra di stampa. &nbsp;
             <span style={{color:"#78350F",fontWeight:"700"}}>↺ Nuova lavorazione</span> — reset totale con conferma (per nuovo comune o nuova elaborazione).
@@ -1429,7 +1360,7 @@ export default function UniEmensBuilder() {
               <div style={C.cHdr} onClick={()=>{setXDip(xDip===dip.id?null:dip.id);setXPer(null);}}>
                 <div style={{display:"flex",gap:"10px",alignItems:"center"}}>
                   <span style={{...C.mono,color:"#00AEEF",fontWeight:"700",fontSize:"12px"}}>{dip.CFLavoratore||"— CF —"}</span>
-                  <span style={{color:T.monoText}}>{dip.Cognome||"Cognome"} {dip.Nome||"Nome"}</span>
+                  <span style={{color:"#7AB8D4"}}>{dip.Cognome||"Cognome"} {dip.Nome||"Nome"}</span>
                   <span style={{...C.bdg("#10B981"),fontSize:"9px"}}>{dip.periodi.length} V1</span>
                   {dip.periodi.some(p=>hasWarn(p))&&<span style={{...C.bdg("#EF4444"),fontSize:"9px"}}>⚠ CONGRUITÀ</span>}
                 </div>
@@ -1463,7 +1394,7 @@ export default function UniEmensBuilder() {
           {warns.length===0&&dupCount!==null&&<div style={C.alert("o")}>✓ Nessuna violazione di congruità rilevata.</div>}
 
           {!xml&&<div style={C.empty}>Clicca "Genera XML" per produrre il flusso UniEmens variazione.</div>}
-          {xml&&<textarea style={{width:"100%",height:"480px",background:T.xmlBg,border:`1px solid ${T.xmlBorder}`,borderRadius:"6px",color:T.xmlText,fontFamily:"'Courier New',monospace",fontSize:"11px",padding:"11px",boxSizing:"border-box",outline:"none",resize:"vertical",lineHeight:"1.55"}} value={xml} readOnly/>}
+          {xml&&<textarea style={{width:"100%",height:"480px",background:"#040B14",border:"1px solid #17304A",borderRadius:"6px",color:"#6EE7B7",fontFamily:"'Courier New',monospace",fontSize:"11px",padding:"11px",boxSizing:"border-box",outline:"none",resize:"vertical",lineHeight:"1.55"}} value={xml} readOnly/>}
         </>}
 
       </div>
