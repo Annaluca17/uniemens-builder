@@ -440,38 +440,40 @@ function generatePDF(m, a, dips) {
 
 /* ════ STYLES ════ */
 const C = {
-  app: { fontFamily: "'Segoe UI',system-ui,sans-serif", fontSize: "13px", background: "#0b1523", color: "#cce0f0", minHeight: "100vh", display: "flex", flexDirection: "column" },
-  hdr: { background: "#0e1d30", borderBottom: "1px solid #1a334f", padding: "10px 16px", display: "flex", alignItems: "center", gap: "10px" },
-  hdrT: { fontSize: "14px", fontWeight: "700", color: "#00c8e0" },
-  hdrS: { fontSize: "10px", color: "#3a5a78", marginTop: "2px" },
-  tabs: { display: "flex", background: "#0d1928", borderBottom: "1px solid #162840" },
-  tab: (a) => ({ padding: "8px 18px", cursor: "pointer", fontSize: "12px", fontWeight: "600", border: "none", background: "transparent", color: a ? "#00c8e0" : "#3a5a78", borderBottom: a ? "2px solid #00c8e0" : "2px solid transparent" }),
-  body: { flex: 1, overflowY: "auto", padding: "14px" },
-  sec: { background: "#0f1e30", border: "1px solid #1a334f", borderRadius: "6px", padding: "13px", marginBottom: "12px" },
-  sT: { fontSize: "10px", fontWeight: "700", color: "#00a8c0", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "10px", paddingBottom: "6px", borderBottom: "1px solid #162840" },
-  row: { display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "8px" },
-  lbl: { fontSize: "10px", color: "#3a6080", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "3px", display: "block" },
-  inp: { background: "#080f1a", border: "1px solid #1a3550", borderRadius: "3px", color: "#c8dff0", padding: "4px 7px", fontSize: "12px", fontFamily: "monospace", outline: "none", width: "100%", boxSizing: "border-box" },
-  inpG: { background: "#05160a", border: "1px solid #0a3a20", borderRadius: "3px", color: "#80e8a8", padding: "4px 7px", fontSize: "12px", fontFamily: "monospace", outline: "none", width: "100%", boxSizing: "border-box" },
-  inpR: { background: "#1a0505", border: "1px solid #5a1010", borderRadius: "3px", color: "#f0a0a0", padding: "4px 7px", fontSize: "12px", fontFamily: "monospace", outline: "none", width: "100%", boxSizing: "border-box" },
-  sel: { background: "#080f1a", border: "1px solid #1a3550", borderRadius: "3px", color: "#c8dff0", padding: "4px 7px", fontSize: "11px", outline: "none", width: "100%", boxSizing: "border-box" },
-  btn: (v="d") => ({ padding: "4px 11px", borderRadius: "3px", border: "none", cursor: "pointer", fontSize: "11px", fontWeight: "600", background: v==="p"?"#005a80":v==="s"?"#006040":v==="x"?"#6a1515":v==="w"?"#5a3a00":v==="pdf"?"#3a2060":v==="imp"?"#0a3a20":v==="cum"?"#2a1a50":"#162840", color: v==="p"?"#b0e4f8":v==="s"?"#90f0d0":v==="x"?"#f0b0b0":v==="w"?"#f0d080":v==="pdf"?"#d0a8ff":v==="imp"?"#80f0b0":v==="cum"?"#c0a0ff":"#7aaac8" }),
-  card: { background: "#0e1c2c", border: "1px solid #1a334f", borderRadius: "5px", marginBottom: "7px", overflow: "hidden" },
-  cHdr: { padding: "9px 13px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#0b1622" },
-  cBody: { padding: "12px 13px" },
-  sub: { background: "#07111e", border: "1px solid #162840", borderRadius: "4px", padding: "9px", marginBottom: "9px" },
-  subT: { fontSize: "9px", fontWeight: "700", color: "#008aa0", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "7px" },
-  th: { background: "#060e18", padding: "3px 6px", textAlign: "left", color: "#2a5070", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #162840", whiteSpace: "nowrap" },
-  thR: { background: "#180606", padding: "3px 6px", textAlign: "right", color: "#804040", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #162840", whiteSpace: "nowrap" },
-  td: { padding: "3px 4px", borderBottom: "1px solid #0d1c2c", verticalAlign: "top" },
-  tdR: { padding: "3px 4px", borderBottom: "1px solid #0d1c2c", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" },
-  sumRow: (over) => ({ background: over ? "#2a0808" : "#061a0e", fontWeight: "700" }),
-  bdg: (c) => ({ background: c+"22", color: c, padding: "1px 6px", borderRadius: "3px", fontSize: "10px", fontWeight: "700", fontFamily: "monospace", whiteSpace: "nowrap" }),
+  app: { fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", fontSize: "13px", background: "#F3F7FA", color: "#334155", minHeight: "100vh", display: "flex", flexDirection: "column" },
+  hdr: { background: "#1E2939", borderBottom: "2px solid #00AEEF55", padding: "10px 16px", display: "flex", alignItems: "center", gap: "10px" },
+  hdrT: { fontSize: "15px", fontWeight: "700", color: "#00AEEF", letterSpacing: "-0.01em" },
+  hdrS: { fontSize: "10px", color: "#7AAFC8", marginTop: "3px", letterSpacing: "0.02em" },
+  tabs: { display: "flex", background: "#FFFFFF", borderBottom: "1px solid #D9E3EC" },
+  tab: (a) => ({ padding: "9px 20px", cursor: "pointer", fontSize: "12px", fontWeight: "600", border: "none", background: "transparent", color: a ? "#0369A1" : "#6A7282", borderBottom: a ? "2px solid #0369A1" : "2px solid transparent", letterSpacing: "0.01em", transition: "color 150ms" }),
+  body: { flex: 1, overflowY: "auto", padding: "16px 18px", background: "#F3F7FA" },
+  sec: { background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: "8px", padding: "14px 16px", marginBottom: "14px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" },
+  sT: { fontSize: "10px", fontWeight: "700", color: "#0369A1", textTransform: "uppercase", letterSpacing: "1.2px", marginBottom: "12px", paddingBottom: "7px", borderBottom: "1px solid #D9E3EC" },
+  row: { display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "9px" },
+  lbl: { fontSize: "10px", color: "#6A7282", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: "4px", display: "block", fontWeight: "600" },
+  inp: { background: "#FFFFFF", border: "1px solid #CBD5E1", borderRadius: "4px", color: "#334155", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
+  inpB: { background: "#EFF6FF", border: "1px solid #93C5FD", borderRadius: "4px", color: "#1E40AF", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
+  inpG: { background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: "4px", color: "#166534", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
+  inpR: { background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: "4px", color: "#991B1B", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
+  sel: { background: "#FFFFFF", border: "1px solid #CBD5E1", borderRadius: "4px", color: "#334155", padding: "5px 8px", fontSize: "11px", outline: "none", width: "100%", boxSizing: "border-box" },
+  btn: (v="d") => ({ padding: "5px 12px", borderRadius: "5px", border: "none", cursor: "pointer", fontSize: "11px", fontWeight: "600", letterSpacing: "0.02em", background: v==="p"?"#0369A1":v==="s"?"#166534":v==="x"?"#991B1B":v==="w"?"#92400E":v==="pdf"?"#4C1D95":v==="imp"?"#065F46":v==="cum"?"#5B21B6":"#E2E8F0", color: v==="p"||v==="s"||v==="x"||v==="w"||v==="pdf"||v==="imp"||v==="cum"?"#FFFFFF":"#334155" }),
+  card: { background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: "6px", marginBottom: "8px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" },
+  cHdr: { padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#F8FAFC" },
+  cBody: { padding: "13px 14px" },
+  sub: { background: "#F8FBFD", border: "1px solid #E2E8F0", borderRadius: "5px", padding: "10px 12px", marginBottom: "10px" },
+  subT: { fontSize: "9px", fontWeight: "700", color: "#0369A1", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" },
+  th: { background: "#EFF6FF", padding: "4px 7px", textAlign: "left", color: "#4A5565", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #D9E3EC", whiteSpace: "nowrap" },
+  thR: { background: "#FFF1F2", padding: "4px 7px", textAlign: "right", color: "#9F1239", fontWeight: "700", fontSize: "10px", borderBottom: "1px solid #D9E3EC", whiteSpace: "nowrap" },
+  td: { padding: "4px 5px", borderBottom: "1px solid #E6EDF3", verticalAlign: "top" },
+  tdR: { padding: "4px 5px", borderBottom: "1px solid #E6EDF3", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" },
+  sumRow:(s) => ({ background: s==="over"?"#FEF2F2":s==="under"?"#FFFBEB":"#F0FDF4", fontWeight: "700" }),
+  bdg: (c) => ({ background: c+"22", color: c, padding: "2px 9px", borderRadius: "9999px", fontSize: "10px", fontWeight: "700", fontFamily: "monospace", whiteSpace: "nowrap" }),
   mono: { fontFamily: "monospace", fontSize: "11px" },
-  empty: { textAlign: "center", color: "#1a3050", padding: "30px", fontSize: "12px" },
-  alert: (t) => ({ background: t==="e"?"#1a0a0a":t==="o"?"#061a0e":"#1a1200", border: `1px solid ${t==="e"?"#5a2020":t==="o"?"#0a5a28":"#5a4000"}`, borderRadius: "5px", padding: "10px 12px", marginBottom: "10px", fontSize: "11px", color: t==="e"?"#e8a0a0":t==="o"?"#80e8b0":"#e8d080", lineHeight: "1.6" }),
-  modal: { position: "fixed", inset: 0, background: "#000000cc", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
-  modalBox: { background: "#0e1d30", border: "1px solid #c05020", borderRadius: "8px", padding: "24px 28px", maxWidth: "400px", width: "90%" },
+  empty: { textAlign: "center", color: "#94A3B8", padding: "32px", fontSize: "12px", fontStyle: "italic" },
+  alert: (t) => ({ background: t==="e"?"#FEF2F2":t==="o"?"#F0FDF4":"#FFFBEB", border: `1px solid ${t==="e"?"#FCA5A5":t==="o"?"#86EFAC":"#FCD34D"}`, borderRadius: "6px", padding: "10px 14px", marginBottom: "10px", fontSize: "11px", lineHeight: "1.65", color: t==="e"?"#991B1B":t==="o"?"#166534":"#92400E" }),
+  modal: { position: "fixed", inset: 0, background: "rgba(15,23,42,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
+  modalBox: { background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: "10px", padding: "24px 28px", maxWidth: "400px", width: "90%", boxShadow: "0 16px 48px rgba(0,0,0,0.14)" },
+  inpB: { background: "#EFF6FF", border: "1px solid #93C5FD", borderRadius: "4px", color: "#1E40AF", padding: "5px 8px", fontSize: "12px", fontFamily: "'Courier New',monospace", outline: "none", width: "100%", boxSizing: "border-box" },
 };
 
 /* ════ FIELD ════ */
@@ -785,7 +787,7 @@ export default function UniEmensBuilder() {
         <div style={{...C.row,alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
             <input type="checkbox" checked={p.hasPartTime} onChange={e=>updPer(dip.id,p.id,"hasPartTime",e.target.checked)} style={{cursor:"pointer"}}/>
-            <span style={{fontSize:"11px",color:"#7aaac8"}}>Part-time</span>
+            <span style={{fontSize:"11px",color:"#4A6E8C"}}>Part-time</span>
           </div>
           {p.hasPartTime&&<>
             <F label="Tipo PT" value={p.TipoPartTime} onChange={v=>updPer(dip.id,p.id,"TipoPartTime",v)} opts={TIPO_PT} w="178px"/>
@@ -808,7 +810,7 @@ export default function UniEmensBuilder() {
       <div style={C.sub}>
         <div style={C.subT}>GestPrevidenziale — TFS / TFR (CodGestione 6)</div>
         {fsMismatch&&(
-          <div style={{background:"#1a0d00",border:"1px solid #c07020",borderRadius:"3px",padding:"5px 8px",marginBottom:"7px",fontSize:"10px",color:"#f0a030",fontWeight:"700"}}>
+          <div style={{background:"#FFFBEB",border:"1px solid #FCD34D",borderRadius:"3px",padding:"5px 8px",marginBottom:"7px",fontSize:"10px",color:"#92400E",fontWeight:"700"}}>
             ⚠ Regime Fine Servizio ({p.RegimeFineServizio==="1"?"TFR privatistico":p.RegimeFineServizio==="2"?"TFR misto":"TFS"}) non coerente con GestPrevidenziale ({p.regimeTFS}). Correggere il regime.
           </div>
         )}
@@ -828,7 +830,7 @@ export default function UniEmensBuilder() {
                 ⚠ TFR-RV: RetribTeoricaTabellareTFR e/o RetribValutabileTFR = 0. Richiesto dall'XSD se ImponibileTFR &gt; 0.
               </div>
             )}
-            <div style={{fontSize:"9px",color:"#3a6080",marginTop:"-2px",marginBottom:"4px"}}>
+            <div style={{fontSize:"9px",color:"#1E40AF",marginTop:"-2px",marginBottom:"4px"}}>
               Auto: ImpTFS × 1,25. Campi emessi in XML a livello V1 (fuori da GestPrevidenziale).
             </div>
           </>
@@ -849,7 +851,7 @@ export default function UniEmensBuilder() {
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"7px"}}>
           <div style={C.subT}>Lista Contributi — Ente Versante ({p.enteVersante.length} righe)</div>
           <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
-            <span style={{fontSize:"9px",color:"#1a5030"}}>+Riga = coppia TC1+TC9</span>
+            <span style={{fontSize:"9px",color:"#15803D"}}>+Riga = coppia TC1+TC9</span>
             <button style={C.btn()} onClick={()=>addEV(dip.id,p.id)}>+ Riga</button>
           </div>
         </div>
@@ -870,7 +872,7 @@ export default function UniEmensBuilder() {
             <tbody>
               {p.enteVersante.map(ev=>{
                 const isSyncedTc9=ev.pairedWith&&p.enteVersante.find(e=>e.id===ev.pairedWith)?.TipoContributo==="1";
-                const bg=ev.TipoContributo==="1"?"#08190e":isSyncedTc9?"#05100a":"transparent";
+                const bg=ev.TipoContributo==="1"?"#F0FDF4":isSyncedTc9?"#F7FEFB":"transparent";
                 return(
                   <tr key={ev.id} style={{background:bg}}>
                     <td style={C.td}><select style={{...C.sel,width:"92px",fontSize:"10px"}} value={ev.TipoContributo} onChange={e=>updEV(dip.id,p.id,ev.id,"TipoContributo",e.target.value)}>{TC_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select></td>
@@ -890,8 +892,8 @@ export default function UniEmensBuilder() {
 
         {/* ── PANNELLO CONGRUITÀ SOMME EV ── */}
         {(p.ImpCPDEL||p.ImpTFS)&&(
-          <div style={{marginTop:"8px",background:"#040d15",border:"1px solid #0e2030",borderRadius:"4px",overflow:"hidden"}}>
-            <div style={{background:"#06111e",padding:"4px 8px",fontSize:"9px",fontWeight:"700",color:"#005a78",textTransform:"uppercase",letterSpacing:"0.8px"}}>
+          <div style={{marginTop:"8px",background:"#F8FBFD",border:"1px solid #D6EAF8",borderRadius:"4px",overflow:"hidden"}}>
+            <div style={{background:"#EAF4FB",padding:"5px 9px",fontSize:"9px",fontWeight:"700",color:"#0369A1",textTransform:"uppercase",letterSpacing:"0.8px"}}>
               Verifica Congruità Somme EV — confronto in tempo reale
             </div>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
@@ -909,21 +911,21 @@ export default function UniEmensBuilder() {
                   <tr style={C.sumRow(over171)}>
                     <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over171?"#e08080":"#60a890"}}>00171I</span> Σ Imponibile TC1</td>
                     <td style={{...C.tdR,color:over171?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC1))}</td>
-                    <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ImpCPDEL)}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ImpCPDEL)}</td>
                     <td style={{...C.tdR,color:over171?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC1-impCPDEL)))}</td>
                     <td style={C.td}>{over171?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
                   <tr style={C.sumRow(overC1)}>
                     <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:overC1?"#e08080":"#60a890"}}>TC1-C</span> Σ Contributo TC1</td>
                     <td style={{...C.tdR,color:overC1?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumContribTC1solo))}</td>
-                    <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ContribCPDEL)}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ContribCPDEL)}</td>
                     <td style={{...C.tdR,color:overC1?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1solo-contCPDEL)))}</td>
                     <td style={C.td}>{overC1?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
                   <tr style={C.sumRow(over172)}>
                     <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#e08080":"#60a890"}}>00172I</span> Σ Contributo TC1+TC5</td>
                     <td style={{...C.tdR,color:over172?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
-                    <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(String(limitContrib))} (CPDEL+1%)</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(String(limitContrib))} (CPDEL+1%)</td>
                     <td style={{...C.tdR,color:over172?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
                     <td style={C.td}>{over172?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
@@ -932,14 +934,14 @@ export default function UniEmensBuilder() {
                   <tr style={C.sumRow(over032)}>
                     <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over032?"#e08080":"#60a890"}}>00032I</span> Σ Imponibile TC9</td>
                     <td style={{...C.tdR,color:over032?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC9))}</td>
-                    <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ImpCredito)}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ImpCredito)}</td>
                     <td style={{...C.tdR,color:over032?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC9-impCred)))}</td>
                     <td style={C.td}>{over032?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
                   <tr style={C.sumRow(overC9)}>
                     <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:overC9?"#e08080":"#60a890"}}>TC9-C</span> Σ Contributo TC9</td>
                     <td style={{...C.tdR,color:overC9?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumContribTC9))}</td>
-                    <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ContribCredito)}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ContribCredito)}</td>
                     <td style={{...C.tdR,color:overC9?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumContribTC9-contCred)))}</td>
                     <td style={C.td}>{overC9?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
@@ -948,14 +950,14 @@ export default function UniEmensBuilder() {
                   <tr style={C.sumRow(over7i)}>
                     <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over7i?"#e08080":"#60a890"}}>TC7-I</span> Σ Imponibile TC7 ({p.regimeTFS})</td>
                     <td style={{...C.tdR,color:over7i?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC7))}</td>
-                    <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ImpTFS)}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ImpTFS)}</td>
                     <td style={{...C.tdR,color:over7i?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC7-impTFS)))}</td>
                     <td style={C.td}>{over7i?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
                   <tr style={C.sumRow(over7c)}>
                     <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over7c?"#e08080":"#60a890"}}>TC7-C</span> Σ Contributo TC7 ({p.regimeTFS})</td>
                     <td style={{...C.tdR,color:over7c?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumContribTC7))}</td>
-                    <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ContribTFS)}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ContribTFS)}</td>
                     <td style={{...C.tdR,color:over7c?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumContribTC7-contTFS)))}</td>
                     <td style={C.td}>{over7c?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
@@ -964,28 +966,28 @@ export default function UniEmensBuilder() {
                   <tr style={C.sumRow(over8i)}>
                     <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over8i?"#e08080":"#60a890"}}>TC8-I</span> Σ Imponibile TC8 (TFR EnteV.)</td>
                     <td style={{...C.tdR,color:over8i?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumImpTC8))}</td>
-                    <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ImpTFS)}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ImpTFS)}</td>
                     <td style={{...C.tdR,color:over8i?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumImpTC8-impTFS)))}</td>
                     <td style={C.td}>{over8i?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
                   <tr style={C.sumRow(over8c)}>
                     <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over8c?"#e08080":"#60a890"}}>TC8-C</span> Σ Contributo TC8 (TFR EnteV.)</td>
                     <td style={{...C.tdR,color:over8c?"#f0a0a0":"#80e8b0",fontWeight:"700"}}>{toIt(String(sumContribTC8))}</td>
-                    <td style={{...C.tdR,color:"#7aaac8"}}>{toIt(p.ContribTFS)}</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(p.ContribTFS)}</td>
                     <td style={{...C.tdR,color:over8c?"#f05050":"#40c870",fontWeight:"700"}}>{toIt(String(round2(sumContribTC8-contTFS)))}</td>
                     <td style={C.td}>{over8c?<span style={{color:"#f05050",fontWeight:"700"}}>⚠ ECCESSO</span>:<span style={{color:"#40c870"}}>✓ OK</span>}</td>
                   </tr>
                 </>}
                 {retribWarn&&(
-                  <tr style={{background:"#200808"}}>
-                    <td colSpan="5" style={{padding:"4px 6px",color:"#f06060",fontSize:"9px",fontWeight:"700"}}>
+                  <tr style={{background:"#FEF2F2"}}>
+                    <td colSpan="5" style={{padding:"4px 6px",color:"#991B1B",fontSize:"9px",fontWeight:"700"}}>
                       ⚠ TFR-RV: RetribTeoricaTabellareTFR e/o RetribValutabileTFR = 0 — obbligatori se ImponibileTFR &gt; 0 (errore XSD)
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-            <div style={{fontSize:"9px",color:"#1a4060",padding:"3px 8px"}}>
+            <div style={{fontSize:"9px",color:"#64748B",padding:"3px 8px"}}>
               Valori negativi = margine residuo. Valori positivi = eccesso da correggere prima del passaggio al sw INPS.
             </div>
           </div>
@@ -1019,14 +1021,14 @@ export default function UniEmensBuilder() {
         <div key={p.id} style={C.card}>
           <div style={C.cHdr} onClick={()=>setXPer(xPer===p.id?null:p.id)}>
             <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-              <span style={C.bdg("#00c8e0")}>caus.{p.CausaleVariazione}</span>
-              <span style={{...C.mono,color:"#7aaac8"}}>{p.GiornoInizio||"???"} → {p.GiornoFine||"???"}</span>
+              <span style={C.bdg("#0369A1")}>caus.{p.CausaleVariazione}</span>
+              <span style={{...C.mono,color:"#4A6E8C"}}>{p.GiornoInizio||"???"} → {p.GiornoFine||"???"}</span>
               <span style={{...C.bdg("#208060"),fontSize:"9px"}}>{p.enteVersante.length} EV</span>
               {p.CodiceCessazione&&<span style={{...C.bdg("#c0780a"),fontSize:"9px"}}>cess.{p.CodiceCessazione}</span>}
               {hasWarn(p)&&<span style={{...C.bdg("#e05050"),fontSize:"9px"}}>⚠ CONGRUITÀ</span>}
             </div>
             <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
-              <span style={{fontSize:"10px",color:xPer===p.id?"#00c8e0":"#1a3a58"}}>{xPer===p.id?"▲":"▼"}</span>
+              <span style={{fontSize:"10px",color:xPer===p.id?"#0369A1":"#94A3B8"}}>{xPer===p.id?"▲":"▼"}</span>
               <button style={C.btn("x")} onClick={e=>{e.stopPropagation();removePer(dip.id,p.id);}}>✕</button>
             </div>
           </div>
@@ -1053,7 +1055,7 @@ export default function UniEmensBuilder() {
             {["1. Periodo e Inquadramento","2. Totali per anno","3. Griglia EV — verifica e conferma"].map((t,i)=>(
               <div key={i} style={{flex:1,padding:"4px 6px",borderRadius:"3px",fontSize:"10px",fontWeight:"700",
                 background:step===i+1?"#2a1a50":step>i+1?"#0a2a10":"#0d1928",
-                color:step===i+1?"#c0a0ff":step>i+1?"#60e890":"#2a4060",
+                color:step===i+1?"#5B21B6":step>i+1?"#15803D":"#94A3B8",
                 borderBottom:step===i+1?"2px solid #8060e0":step>i+1?"2px solid #2a8040":"2px solid transparent"}}>
                 {t}
               </div>
@@ -1092,7 +1094,7 @@ export default function UniEmensBuilder() {
               <div style={{...C.row,alignItems:"center"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
                   <input type="checkbox" checked={inq.hasPartTime} onChange={e=>setInq("hasPartTime",e.target.checked)} style={{cursor:"pointer"}}/>
-                  <span style={{fontSize:"11px",color:"#7aaac8"}}>Part-time</span>
+                  <span style={{fontSize:"11px",color:"#4A6E8C"}}>Part-time</span>
                 </div>
                 {inq.hasPartTime&&<>
                   <F label="Tipo PT" value={inq.TipoPartTime} onChange={v=>setInq("TipoPartTime",v)} opts={TIPO_PT} w="176px"/>
@@ -1105,7 +1107,7 @@ export default function UniEmensBuilder() {
                 <F label="Retrib. anzianità" value={inq.RetribAnzianita} onChange={v=>setInq("RetribAnzianita",v)} ph="0,00" w="136px"/>
               </div>
             </div>
-            <div style={{fontSize:"9px",color:"#2a4a60",padding:"4px 0"}}>Causale V1: 5 (fissa) · CF Azienda ed EnteVersante presi dall'intestazione corrente: <strong style={{color:"#3a7080"}}>{a.CFAzienda||"—"}</strong></div>
+            <div style={{fontSize:"9px",color:"#64748B",padding:"4px 0"}}>Causale V1: 5 (fissa) · CF Azienda ed EnteVersante presi dall'intestazione corrente: <strong style={{color:"#0369A1"}}>{a.CFAzienda||"—"}</strong></div>
             <div style={{display:"flex",gap:"8px",justifyContent:"flex-end",marginTop:"8px"}}>
               <button style={C.btn()} onClick={()=>setCumuloModal(null)}>Annulla</button>
               <button style={{...C.btn("p"),opacity:(!inq.dateFrom||!inq.dateTo||inq.dateFrom>inq.dateTo)?0.4:1}}
@@ -1127,7 +1129,7 @@ export default function UniEmensBuilder() {
                 <div key={yr.anno} style={{...C.sub,marginBottom:"10px"}}>
                   <div style={{...C.subT,fontSize:"10px",color:"#80c0a0",display:"flex",gap:"8px",alignItems:"center"}}>
                     <span>Anno {yr.anno}</span>
-                    <span style={{color:"#3a6050"}}>{MESI_IT[yr.meseFrom]} → {MESI_IT[yr.meseTo]}</span>
+                    <span style={{color:"#166534"}}>{MESI_IT[yr.meseFrom]} → {MESI_IT[yr.meseTo]}</span>
                     <span style={{background:"#1a3040",padding:"1px 6px",borderRadius:"3px",color:"#4a90a0"}}>
                       ÷{yr.divisor}{yr.divisor===13?" (annualità intera, dic=doppio)":` (${yr.meseTo-yr.meseFrom+1} mesi)`}
                     </span>
@@ -1146,7 +1148,7 @@ export default function UniEmensBuilder() {
                     <F label="Solidarietà L166/91 Imp." value={yr.ImpSol} onChange={v=>setYr(yr.anno,"ImpSol",v)} ph="0,00 (opz.)" w="148px"/>
                     <F label="Solidarietà L166/91 Contrib." value={yr.ContribSol} onChange={v=>setYr(yr.anno,"ContribSol",v)} ph="0,00 (opz.)" w="148px"/>
                   </div>
-                  <div style={{fontSize:"9px",color:"#1a5030"}}>Imponibile Credito = Imponibile CPDEL (auto). Residuo di arrotondamento → ultima mensilità.</div>
+                  <div style={{fontSize:"9px",color:"#15803D"}}>Imponibile Credito = Imponibile CPDEL (auto). Residuo di arrotondamento → ultima mensilità.</div>
                 </div>
               ))}
             </div>
@@ -1175,7 +1177,7 @@ export default function UniEmensBuilder() {
             {stepBar}
             <div style={{fontSize:"10px",color:"#5a8060",marginBottom:"6px",display:"flex",gap:"12px",alignItems:"center"}}>
               <span>{evGrid.length} righe mese · {evGrid.length*2}{hasTFS?"+TFS":""}{hasC1?"+1%":""}{hasSol?"+Sol":""} EV totali generate</span>
-              <span style={{color:"#2a6050"}}>Celle verdi = auto-sync con TC1 Imponibile (editabili)</span>
+              <span style={{color:"#166534"}}>Celle verdi = auto-sync con TC1 Imponibile (editabili)</span>
             </div>
             <div style={{overflowX:"auto",overflowY:"auto",maxHeight:"50vh",border:"1px solid #162840",borderRadius:"4px"}}>
               <table style={{borderCollapse:"collapse",fontSize:"10px",minWidth:"100%"}}>
@@ -1203,14 +1205,14 @@ export default function UniEmensBuilder() {
                     return[
                       <tr key={`yh-${yr}`} style={{background:"#060e18"}}>
                         <td colSpan={4+(hasTFS?2:0)+(hasC1?2:0)+(hasSol?2:0)+2}
-                          style={{padding:"3px 6px",color:"#3a7080",fontWeight:"700",fontSize:"10px",letterSpacing:"0.5px"}}>
+                          style={{padding:"3px 6px",color:"#0369A1",fontWeight:"700",fontSize:"10px",letterSpacing:"0.5px"}}>
                           ── {yr} ── ÷{annoDivisor(yrRows)} {annoDivisor(yrRows)===13?"(annualità intera)":"(parziale)"}
                         </td>
                       </tr>,
                       ...yrRows.map(row=>(
                         <tr key={row.id} style={{background:row.isDec?"#0a1a08":"transparent"}}>
                           <td style={{...C.td,position:"sticky",left:0,background:row.isDec?"#0a1a08":"#0b1523",
-                            color:row.isDec?"#80e890":"#7aaac8",fontFamily:"monospace",fontSize:"10px",whiteSpace:"nowrap",minWidth:"76px"}}>
+                            color:row.isDec?"#80e890":"#4A6E8C",fontFamily:"monospace",fontSize:"10px",whiteSpace:"nowrap",minWidth:"76px"}}>
                             {row.annoMese}{row.isDec?" ×2":""}
                           </td>
                           {tdEd(row.id,"tc1Imp",row.tc1Imp)}
@@ -1242,7 +1244,7 @@ export default function UniEmensBuilder() {
                   })}
                   {years.length>1&&(
                     <tr style={{background:"#060e18",fontWeight:"700",borderTop:"2px solid #1a334f"}}>
-                      <td style={{...C.td,color:"#00c8e0",fontSize:"9px",position:"sticky",left:0,background:"#060e18"}}>TOTALE</td>
+                      <td style={{...C.td,color:"#0369A1",fontSize:"9px",position:"sticky",left:0,background:"#060e18"}}>TOTALE</td>
                       <td style={{...C.tdR,color:"#80e8c8",fontSize:"10px"}}>{toIt(String(sumTot("tc1Imp")))}</td>
                       <td style={{...C.tdR,color:"#80e8c8",fontSize:"10px"}}>{toIt(String(sumTot("tc1Cont")))}</td>
                       <td style={{...C.tdR,color:"#80e8c8",fontSize:"10px"}}>{toIt(String(sumTot("tc9Imp")))}</td>
@@ -1309,7 +1311,7 @@ export default function UniEmensBuilder() {
             )}
 
             {/* Lista dipendenti selezionabili */}
-            <div style={{fontSize:"10px",color:"#3a6a50",marginBottom:"5px",flexShrink:0}}>
+            <div style={{fontSize:"10px",color:"#166534",marginBottom:"5px",flexShrink:0}}>
               Seleziona i dipendenti da importare:
               <button style={{...C.btn(),marginLeft:"8px",fontSize:"9px",padding:"2px 7px"}}
                 onClick={()=>setImportModal(p=>({...p,selected:new Set(p.workers.map(w=>w.id))}))}>
@@ -1352,7 +1354,7 @@ export default function UniEmensBuilder() {
                         <td style={{...C.td,color:sel?"#c8e8d8":"#6a9a80"}}>{w.Nome||"—"}</td>
                         <td style={{...C.td,color:"#4a7a60"}}>{w.CodiceComune||"—"}</td>
                         <td style={{...C.td,textAlign:"center",...C.bdg("#208060")}}>{w.periodi.length}</td>
-                        <td style={{...C.td,textAlign:"center",...C.bdg("#1a6050")}}>{totEVw}</td>
+                        <td style={{...C.td,textAlign:"center",...C.bdg("#0D9488")}}>{totEVw}</td>
                       </tr>
                     );
                   })}
@@ -1362,7 +1364,7 @@ export default function UniEmensBuilder() {
 
             {/* Note su DatiMittente */}
             {!importModal.isVariazione&&(
-              <div style={{fontSize:"10px",color:"#3a6050",marginBottom:"10px",padding:"5px 8px",background:"#050e0a",borderRadius:"3px",flexShrink:0}}>
+              <div style={{fontSize:"10px",color:"#166534",marginBottom:"10px",padding:"5px 8px",background:"#050e0a",borderRadius:"3px",flexShrink:0}}>
                 File standard (non variazione): periodi E0 importati come V1 causale 5. EnteVersante pre-compilata con coppia TC1+TC9 vuota.
               </div>
             )}
@@ -1451,9 +1453,9 @@ export default function UniEmensBuilder() {
               <F label="Forma Giuridica" value={a.FormaGiuridica} onChange={af("FormaGiuridica")} opts={FG_OPTS} w="236px"/>
             </div>
           </div>
-          <div style={{...C.sec,background:"#060e18",borderColor:"#0e2030",fontSize:"11px",color:"#1a4060",lineHeight:"1.8"}}>
-            <strong style={{color:"#005070"}}>Pulsanti header:</strong>&nbsp;
-            <span style={{color:"#3a2060",fontWeight:"700"}}>⬛ PDF</span> — rendiconto completo con semafori di congruità, apre finestra di stampa. &nbsp;
+          <div style={{...C.sec,background:"#060e18",borderColor:"#0e2030",fontSize:"11px",color:"#64748B",lineHeight:"1.8"}}>
+            <strong style={{color:"#0369A1"}}>Pulsanti header:</strong>&nbsp;
+            <span style={{color:"#4C1D95",fontWeight:"700"}}>⬛ PDF</span> — rendiconto completo con semafori di congruità, apre finestra di stampa. &nbsp;
             <span style={{color:"#5a3a00",fontWeight:"700"}}>↺ Nuova lavorazione</span> — reset totale con conferma (per nuovo comune o nuova elaborazione).
           </div>
         </>}
@@ -1467,13 +1469,13 @@ export default function UniEmensBuilder() {
             <div key={dip.id} style={C.card}>
               <div style={C.cHdr} onClick={()=>{setXDip(xDip===dip.id?null:dip.id);setXPer(null);}}>
                 <div style={{display:"flex",gap:"10px",alignItems:"center"}}>
-                  <span style={{...C.mono,color:"#00c8e0",fontWeight:"700",fontSize:"12px"}}>{dip.CFLavoratore||"— CF —"}</span>
+                  <span style={{...C.mono,color:"#0369A1",fontWeight:"700",fontSize:"12px"}}>{dip.CFLavoratore||"— CF —"}</span>
                   <span style={{color:"#8ab8d0"}}>{dip.Cognome||"Cognome"} {dip.Nome||"Nome"}</span>
                   <span style={{...C.bdg("#208060"),fontSize:"9px"}}>{dip.periodi.length} V1</span>
                   {dip.periodi.some(p=>hasWarn(p))&&<span style={{...C.bdg("#e05050"),fontSize:"9px"}}>⚠ CONGRUITÀ</span>}
                 </div>
                 <div style={{display:"flex",gap:"6px"}}>
-                  <span style={{fontSize:"10px",color:xDip===dip.id?"#00c8e0":"#1a3a58"}}>{xDip===dip.id?"▲":"▼"}</span>
+                  <span style={{fontSize:"10px",color:xDip===dip.id?"#0369A1":"#94A3B8"}}>{xDip===dip.id?"▲":"▼"}</span>
                   <button style={C.btn("x")} onClick={e=>{e.stopPropagation();removeDip(dip.id);}}>✕</button>
                 </div>
               </div>
