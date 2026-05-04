@@ -73,6 +73,7 @@ function initYearRows(dateFrom,dateTo){
 const EMPTY_INQ={dateFrom:"",dateTo:"",TipoImpiego:"1",TipoServizio:"4",
   Contratto:"RALN",Qualifica:"",hasPartTime:false,TipoPartTime:"P",
   PercPartTime:"",RegimeFineServizio:"3",CodiceCessazione:"",
+  GiorniUtiliFiniPensionistici:"",
   StipTabellare:"0,00",RetribAnzianita:"0,00",
   RetribTeoricaTabellareTFR:"",ImponibileTFRUlterioriElem:"",
   ContributoTFRUlterioriElem:"",RetribValutabileTFR:""};
@@ -99,7 +100,7 @@ function pairEVRows(evList) {
 
 function parseInquadramento(perEl) {
   const inq = perEl.querySelector("InquadramentoLavPA");
-  if (!inq) return { TipoImpiego:"1", TipoServizio:"4", Contratto:"RALN", Qualifica:"", hasPartTime:false, TipoPartTime:"O", PercPartTime:"", RegimeFineServizio:"3" };
+  if (!inq) return { TipoImpiego:"1", TipoServizio:"4", Contratto:"RALN", Qualifica:"", hasPartTime:false, TipoPartTime:"P", PercPartTime:"", RegimeFineServizio:"3" };
   const pt = inq.querySelector("PartTimePA");
   return {
     TipoImpiego: getTxt(inq,"TipoImpiego") || "1",
@@ -131,6 +132,7 @@ function parseGestioni(perEl) {
     g.Contrib1Perc = getTxt(gp,"Contrib1PerCento");
     g.StipTabellare = getTxt(gp,"StipendioTabellare") || "0,00";
     g.RetribAnzianita = getTxt(gp,"RetribIndivAnzianita") || "0,00";
+    g.GiorniUtiliFiniPensionistici = getTxt(gp,"GiorniUtiliFiniPensionistici") || "";
   }
   const gpr = perEl.querySelector("GestPrevidenziale");
   if (gpr) {
@@ -267,12 +269,14 @@ function buildXML(m, a, dips) {
       /* ── FIX 00126I: causale 6 = solo date, nessun altro elemento ── */
       if (p.CausaleVariazione !== "6") {
         x += `                      <InquadramentoLavPA>\n                          <TipoImpiego>${esc(p.TipoImpiego)}</TipoImpiego>\n                          <TipoServizio>${esc(p.TipoServizio)}</TipoServizio>\n                          <Contratto>${esc(p.Contratto)}</Contratto>\n                          <Qualifica>${esc(p.Qualifica)}</Qualifica>\n`;
-        if (p.hasPartTime) x += `                          <PartTimePA>\n                              <TipoPartTime>${esc(p.TipoPartTime)}</TipoPartTime>\n                              <PercPartTime>${esc(p.PercPartTime)}</PercPartTime>\n                          </PartTimePA>\n`;
+        if (p.hasPartTime && (p.TipoImpiego==="8"||p.TipoImpiego==="18")) x += `                          <PartTimePA>\n                              <TipoPartTime>${esc(p.TipoPartTime)}</TipoPartTime>\n                              <PercPartTime>${esc(p.PercPartTime)}</PercPartTime>\n                          </PartTimePA>\n`;
         x += `                          <RegimeFineServizio>${esc(p.RegimeFineServizio)}</RegimeFineServizio>\n                      </InquadramentoLavPA>\n`;
         x += `                      <Gestioni>\n`;
         if (p.ImpCPDEL) {
           x += `                          <GestPensionistica>\n                              <CodGestione>2</CodGestione>\n                              <Imponibile>${toIt(p.ImpCPDEL)}</Imponibile>\n                              <Contributo>${toIt(p.ContribCPDEL)}</Contributo>\n`;
           if (p.Contrib1Perc) x += `                              <Contrib1PerCento>${toIt(p.Contrib1Perc)}</Contrib1PerCento>\n`;
+          /* GiorniUtiliFiniPensionistici: obbligatorio quando TipoImpiego=2 (Giornaliero), max 27 */
+          if (p.TipoImpiego==="2" && p.GiorniUtiliFiniPensionistici) x += `                              <GiorniUtiliFiniPensionistici>${esc(p.GiorniUtiliFiniPensionistici)}</GiorniUtiliFiniPensionistici>\n`;
           x += `                              <StipendioTabellare>${toIt(p.StipTabellare)}</StipendioTabellare>\n                              <RetribIndivAnzianita>${toIt(p.RetribAnzianita)}</RetribIndivAnzianita>\n                          </GestPensionistica>\n`;
         }
         if (p.ImpTFS) {
@@ -565,7 +569,30 @@ function F({ label, value, onChange, ph="", w="140px", full=false, opts=null, gr
 
 /* ════ LOOKUP TABLES ════ */
 const CAUSALE=[{v:"1",l:"1 – Integrazione"},{v:"5",l:"5 – Sostituzione / mai denunciato"},{v:"6",l:"6 – Annullamento"},{v:"7",l:"7 – Conguaglio previdenziale"}];
-const TIPO_IMPIEGO=[{v:"1",l:"1 – TI tempo pieno"},{v:"2",l:"2 – TI part-time"},{v:"8",l:"8 – TD tempo pieno"},{v:"9",l:"9 – TD part-time"}];
+/* Codici TipoImpiego DMA2/ListaPosPA — fonte: Manuale PASSWEB Tabella 11
+   PT TI=8, PT TD=18. Codice 2=Giornaliero (richiede GiorniUtiliFiniPensionistici, max 27).
+   Codice 1=TI, 17=TD, 9=Orario ridotto, 10=Tempo definito, 8/18=Part-time. */
+const TIPO_IMPIEGO=[
+  {v:"1", l:"1 – TI tempo pieno (contr. a tempo indet.)"},
+  {v:"2", l:"2 – Giornaliero ⚠ richiede GiorniUtili"},
+  {v:"8", l:"8 – Part-time TI (contr. a tempo indet.)"},
+  {v:"9", l:"9 – Orario ridotto"},
+  {v:"10",l:"10 – Tempo definito (sanitario/universitario)"},
+  {v:"13",l:"13 – Supplenti della Scuola"},
+  {v:"14",l:"14 – D.Lgs.165/97 art.4 (personale militare)"},
+  {v:"17",l:"17 – TD tempo pieno (contr. a tempo det.)"},
+  {v:"18",l:"18 – Part-time TD (contr. a tempo det.)"},
+  {v:"3", l:"3 – CFL centro/nord (aliq.ente -25%)"},
+  {v:"4", l:"4 – CFL mezzogiorno (aliq.ente -50%)"},
+  {v:"5", l:"5 – CFL trasform. TI centro/nord"},
+  {v:"6", l:"6 – CFL trasform. TI mezzogiorno"},
+  {v:"7", l:"7 – CFL L.196/97 mezzogiorno"},
+  {v:"11",l:"11 – L.407/90 art.8 c.9 centro/nord"},
+  {v:"12",l:"12 – L.407/90 art.8 c.9 mezzogiorno"},
+  {v:"35",l:"35 – Contr.inserimento c/n 25%"},
+  {v:"36",l:"36 – Contr.inserimento lavoratrici Lazio/Molise 25%"},
+  {v:"37",l:"37 – Contr.inserimento lavoratrici Mezzo. 50%"},
+];
 const TIPO_SERVIZIO=[{v:"4",l:"4 – Ordinario"},{v:"5",l:"5 – Straordinario"},{v:"6",l:"6 – Lavoro autonomo"}];
 const REGIME_FS=[{v:"1",l:"1 – TFR privatistico"},{v:"2",l:"2 – TFR misto"},{v:"3",l:"3 – TFS (INADEL)"}];
 /* DMA2 XSD: TipoPartTime = P (Orizzontale), V (Verticale), M (Misto) — NON 'O' (errore enum XSD) */
@@ -720,6 +747,7 @@ export default function UniEmensBuilder() {
       id:uid(), CausaleVariazione:"5", GiornoInizio:"", GiornoFine:"",
       TipoImpiego:"1", TipoServizio:"4", Contratto:"RALN", Qualifica:"",
       hasPartTime:false, TipoPartTime:"P", PercPartTime:"", RegimeFineServizio:"3",
+      GiorniUtiliFiniPensionistici:"",
       ImpCPDEL:"", ContribCPDEL:"", Contrib1Perc:"", StipTabellare:"0,00", RetribAnzianita:"0,00",
       regimeTFS:"TFS", ImpTFS:"", ContribTFS:"",
       RetribTeoricaTabellareTFR:"",
@@ -750,6 +778,12 @@ export default function UniEmensBuilder() {
     if(p.id!==perId)return p;
     const u={[k]:v};
     if(k==="ImpCPDEL") u.ImpCredito=v;
+    /* TipoImpiego → auto-sync hasPartTime (8=PT TI, 18=PT TD → true; altri → false) */
+    if(k==="TipoImpiego"){
+      u.hasPartTime=(v==="8"||v==="18");
+      if(v!=="8"&&v!=="18"){u.TipoPartTime="P";u.PercPartTime="";}
+      if(v!=="2")u.GiorniUtiliFiniPensionistici="";
+    }
     /* RegimeFineServizio → regimeTFS sync (unidirezionale: prevale RegimeFineServizio)
        1=TFR privatistico, 2=TFR misto → TFR; 3=TFS INADEL → TFS */
     if(k==="RegimeFineServizio"){
@@ -970,22 +1004,29 @@ export default function UniEmensBuilder() {
       <div style={C.sub}>
         <div style={C.subT}>InquadramentoLavPA</div>
         <div style={C.row}>
-          <F label="Tipo impiego" value={p.TipoImpiego} onChange={v=>updPer(dip.id,p.id,"TipoImpiego",v)} opts={TIPO_IMPIEGO} w="198px"/>
+          <F label="Tipo impiego" value={p.TipoImpiego} onChange={v=>updPer(dip.id,p.id,"TipoImpiego",v)} opts={TIPO_IMPIEGO} w="340px"/>
           <F label="Tipo servizio" value={p.TipoServizio} onChange={v=>updPer(dip.id,p.id,"TipoServizio",v)} opts={TIPO_SERVIZIO} w="178px"/>
           <F label="Contratto" value={p.Contratto} onChange={v=>updPer(dip.id,p.id,"Contratto",v)} ph="RALN" w="86px"/>
           <F label="Qualifica" value={p.Qualifica} onChange={v=>updPer(dip.id,p.id,"Qualifica",v)} ph="042000" w="106px"/>
           <F label="Regime fine servizio" value={p.RegimeFineServizio} onChange={v=>updPer(dip.id,p.id,"RegimeFineServizio",v)} opts={REGIME_FS} w="178px"/>
         </div>
-        <div style={{...C.row,alignItems:"center"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-            <input type="checkbox" checked={p.hasPartTime} onChange={e=>updPer(dip.id,p.id,"hasPartTime",e.target.checked)} style={{cursor:"pointer"}}/>
-            <span style={{fontSize:"11px",color:"#4A6E8C"}}>Part-time</span>
-          </div>
-          {p.hasPartTime&&<>
+        {/* Part-time: auto da TipoImpiego 8 (PT TI) o 18 (PT TD) */}
+        {(p.TipoImpiego==="8"||p.TipoImpiego==="18")&&(
+          <div style={C.row}>
+            <div style={{fontSize:"10px",color:"#0369A1",fontWeight:"700",alignSelf:"center",minWidth:"80px"}}>Part-time</div>
             <F label="Tipo PT" value={p.TipoPartTime} onChange={v=>updPer(dip.id,p.id,"TipoPartTime",v)} opts={TIPO_PT} w="178px"/>
-            <F label="% (es. 50000)" value={p.PercPartTime} onChange={v=>updPer(dip.id,p.id,"PercPartTime",v)} ph="50000" w="138px"/>
-          </>}
-        </div>
+            <F label="% PT (es. 50000 = 50%)" value={p.PercPartTime} onChange={v=>updPer(dip.id,p.id,"PercPartTime",v)} ph="50000" w="158px"/>
+          </div>
+        )}
+        {/* GiorniUtiliFiniPensionistici: obbligatorio per TipoImpiego=2 (Giornaliero) */}
+        {p.TipoImpiego==="2"&&(
+          <div style={C.row}>
+            <F label="Giorni utili fini pensionistici (max 27) ⚠ obbligatorio per Giornaliero" value={p.GiorniUtiliFiniPensionistici} onChange={v=>updPer(dip.id,p.id,"GiorniUtiliFiniPensionistici",v)} ph="es. 22" w="360px" red={!p.GiorniUtiliFiniPensionistici}/>
+            <div style={{fontSize:"9px",color:"#991B1B",alignSelf:"flex-end",paddingBottom:"6px"}}>
+              {!p.GiorniUtiliFiniPensionistici&&"⚠ 00072I: obbligatorio con TipoImpiego=2"}
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={C.sub}>
@@ -1288,22 +1329,19 @@ export default function UniEmensBuilder() {
         <div style={C.sub}>
           <div style={C.subT}>InquadramentoLavPA</div>
           <div style={C.row}>
-            <F label="Tipo impiego" value={inq.TipoImpiego} onChange={v=>setInq("TipoImpiego",v)} opts={TIPO_IMPIEGO} w="196px"/>
+            <F label="Tipo impiego" value={inq.TipoImpiego} onChange={v=>setInq("TipoImpiego",v)} opts={TIPO_IMPIEGO} w="340px"/>
             <F label="Tipo servizio" value={inq.TipoServizio} onChange={v=>setInq("TipoServizio",v)} opts={TIPO_SERVIZIO} w="176px"/>
             <F label="Contratto" value={inq.Contratto} onChange={v=>setInq("Contratto",v)} ph="RALN" w="86px"/>
             <F label="Qualifica" value={inq.Qualifica} onChange={v=>setInq("Qualifica",v)} ph="042000" w="106px"/>
             <F label="Regime FS" value={inq.RegimeFineServizio} onChange={v=>setInq("RegimeFineServizio",v)} opts={REGIME_FS} w="176px"/>
           </div>
-          <div style={{...C.row,alignItems:"center"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-              <input type="checkbox" checked={inq.hasPartTime} onChange={e=>setInq("hasPartTime",e.target.checked)} style={{cursor:"pointer"}}/>
-              <span style={{fontSize:"11px",color:"#4A6E8C"}}>Part-time</span>
-            </div>
-            {inq.hasPartTime&&<>
+          {(inq.TipoImpiego==="8"||inq.TipoImpiego==="18")&&(
+            <div style={C.row}>
+              <div style={{fontSize:"10px",color:"#0369A1",fontWeight:"700",alignSelf:"center",minWidth:"80px"}}>Part-time</div>
               <F label="Tipo PT" value={inq.TipoPartTime} onChange={v=>setInq("TipoPartTime",v)} opts={TIPO_PT} w="176px"/>
-              <F label="% (es. 50000)" value={inq.PercPartTime} onChange={v=>setInq("PercPartTime",v)} ph="50000" w="136px"/>
-            </>}
-          </div>
+              <F label="% PT (es. 50000)" value={inq.PercPartTime} onChange={v=>setInq("PercPartTime",v)} ph="50000" w="136px"/>
+            </div>
+          )}
           <div style={C.row}>
             <F label="Regime TFS/TFR" value={inq.regimeTFS||"TFS"} onChange={v=>setInq("regimeTFS",v)} opts={[{v:"TFS",l:"TFS (INADEL)"},{v:"TFR",l:"TFR"}]} w="156px"/>
             <F label="Stipendio tabellare" value={inq.StipTabellare} onChange={v=>setInq("StipTabellare",v)} ph="0,00" w="136px"/>
@@ -1603,8 +1641,8 @@ export default function UniEmensBuilder() {
 
       <div style={C.hdr}>
         <div>
-          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.5</div>
-          <div style={C.hdrS}>Fix TipoPartTime DMA2: P=Orizzontale (non O) · RegimeFineServizio→regimeTFS sync · verifiche pairing EV bidirezionali</div>
+          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.6</div>
+          <div style={C.hdrS}>TipoImpiego DMA2 completo (19 codici) · TipoPartTime auto da codice 8/18 · GiorniUtiliFiniPensionistici per Giornaliero (cod.2)</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
           <span style={{fontSize:"11px",color:"#94A3B8",fontVariantNumeric:"tabular-nums"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
