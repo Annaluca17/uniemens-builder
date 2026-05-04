@@ -788,7 +788,7 @@ export default function UniEmensBuilder() {
     setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:d.periodi.map(p=>p.id===perId?{...p,enteVersante:[...p.enteVersante,tc1,tc9,tc7]}:p)}:d));
   };
 
-  /* Copia coppia al mese successivo — cliccare su qualsiasi riga del gruppo */
+  /* Copia riga/coppia al mese successivo — disponibile su tutte le righe EV */
   const copyEVPair=(dipId,perId,evId)=>{
     setDips(ds=>ds.map(d=>{
       if(d.id!==dipId)return d;
@@ -796,24 +796,48 @@ export default function UniEmensBuilder() {
         if(p.id!==perId)return p;
         const src=p.enteVersante.find(e=>e.id===evId);
         if(!src)return p;
-        /* risolvi al TC1 del gruppo */
-        const tc1Row=src.TipoContributo==="1"?src:p.enteVersante.find(e=>e.id===src.pairedWith);
-        if(!tc1Row)return p;
-        const tc9Row=tc1Row.pairedTc9?p.enteVersante.find(e=>e.id===tc1Row.pairedTc9):null;
-        /* TC7 con stesso mese */
-        const tc7Row=p.enteVersante.find(e=>e.TipoContributo==="7"&&e.AnnoMeseErogazione===tc1Row.AnnoMeseErogazione&&!e.pairedWith&&!e.pairedTc9);
-        const newAM=nextAnnoMese(tc1Row.AnnoMeseErogazione);
-        const n1=uid(),n9=uid();
-        const newRows=[
-          {...tc1Row,id:n1,AnnoMeseErogazione:newAM,pairedTc9:n9},
-          tc9Row?{...tc9Row,id:n9,AnnoMeseErogazione:newAM,pairedWith:n1}:null,
-          tc7Row?{...tc7Row,id:uid(),AnnoMeseErogazione:newAM}:null,
-        ].filter(Boolean);
-        /* inserisci dopo l'ultima riga del gruppo */
-        const lastRow=tc7Row||tc9Row||tc1Row;
-        const insertIdx=p.enteVersante.findIndex(e=>e.id===lastRow.id);
         const ev=[...p.enteVersante];
-        ev.splice(insertIdx+1,0,...newRows);
+
+        /* ── TC1 (anchor del gruppo): copia TC1+TC9 paired + TC7 stesso mese ── */
+        if(src.TipoContributo==="1"){
+          const tc9Row=src.pairedTc9?p.enteVersante.find(e=>e.id===src.pairedTc9):null;
+          const tc7Row=p.enteVersante.find(e=>e.TipoContributo==="7"&&e.AnnoMeseErogazione===src.AnnoMeseErogazione&&!e.pairedWith&&!e.pairedTc9);
+          const newAM=nextAnnoMese(src.AnnoMeseErogazione);
+          const n1=uid(),n9=uid();
+          const newRows=[
+            {...src,id:n1,AnnoMeseErogazione:newAM,pairedTc9:tc9Row?n9:undefined},
+            tc9Row?{...tc9Row,id:n9,AnnoMeseErogazione:newAM,pairedWith:n1}:null,
+            tc7Row?{...tc7Row,id:uid(),AnnoMeseErogazione:newAM}:null,
+          ].filter(Boolean);
+          const lastRow=tc7Row||tc9Row||src;
+          const lastIdx=p.enteVersante.findIndex(e=>e.id===lastRow.id);
+          ev.splice(lastIdx+1,0,...newRows);
+          return{...p,enteVersante:ev};
+        }
+
+        /* ── TC9 paired a TC1: risolvi al TC1 e copia il gruppo ── */
+        if(src.TipoContributo==="9"&&src.pairedWith){
+          const tc1Row=p.enteVersante.find(e=>e.id===src.pairedWith);
+          if(!tc1Row)return p;
+          const tc9Row=tc1Row.pairedTc9?p.enteVersante.find(e=>e.id===tc1Row.pairedTc9):null;
+          const tc7Row=p.enteVersante.find(e=>e.TipoContributo==="7"&&e.AnnoMeseErogazione===tc1Row.AnnoMeseErogazione&&!e.pairedWith&&!e.pairedTc9);
+          const newAM=nextAnnoMese(tc1Row.AnnoMeseErogazione);
+          const n1=uid(),n9=uid();
+          const newRows=[
+            {...tc1Row,id:n1,AnnoMeseErogazione:newAM,pairedTc9:tc9Row?n9:undefined},
+            tc9Row?{...tc9Row,id:n9,AnnoMeseErogazione:newAM,pairedWith:n1}:null,
+            tc7Row?{...tc7Row,id:uid(),AnnoMeseErogazione:newAM}:null,
+          ].filter(Boolean);
+          const lastRow=tc7Row||tc9Row||tc1Row;
+          const lastIdx=p.enteVersante.findIndex(e=>e.id===lastRow.id);
+          ev.splice(lastIdx+1,0,...newRows);
+          return{...p,enteVersante:ev};
+        }
+
+        /* ── Tutte le altre righe (TC7, TC8, TC6, TC5, TC9 standalone…): copia singola ── */
+        const newAM=nextAnnoMese(src.AnnoMeseErogazione);
+        const insertIdx=p.enteVersante.findIndex(e=>e.id===evId);
+        ev.splice(insertIdx+1,0,{...src,id:uid(),AnnoMeseErogazione:newAM});
         return{...p,enteVersante:ev};
       })};
     }));
@@ -1031,7 +1055,7 @@ export default function UniEmensBuilder() {
           <div style={C.subT}>Lista Contributi — Ente Versante ({p.enteVersante.length} righe)</div>
           <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
             <span style={{fontSize:"9px",color:"#15803D"}}>+Riga = tripla TC1+TC9+TC7</span>
-            <span style={{fontSize:"9px",color:"#0E7490"}}>📋 = copia coppia al mese succ.</span>
+            <span style={{fontSize:"9px",color:"#0E7490"}}>📋 = copia riga/gruppo al mese succ.</span>
             <button style={C.btn()} onClick={()=>addEV(dip.id,p.id)}>+ Riga</button>
           </div>
         </div>
@@ -1054,19 +1078,17 @@ export default function UniEmensBuilder() {
               {p.enteVersante.map(ev=>{
                 const isSyncedTc9=ev.pairedWith&&p.enteVersante.find(e=>e.id===ev.pairedWith)?.TipoContributo==="1";
                 const bg=ev.TipoContributo==="1"?"#F0FDF4":isSyncedTc9?"#F7FEFB":"transparent";
-                /* mostra copia su TC1 o su righe libere (TC7, TC8) */
-                const showCopy=ev.TipoContributo==="1"||(ev.TipoContributo!=="9"&&!ev.pairedWith);
+                /* copia disponibile su tutte le righe */
+                const copyTitle=ev.TipoContributo==="1"?"Copia gruppo TC1+TC9(+TC7) al mese succ.":ev.TipoContributo==="9"&&ev.pairedWith?"Copia coppia TC1+TC9 al mese succ.":"Copia riga al mese successivo";
                 return(
                   <tr key={ev.id} style={{background:bg}}>
                     <td style={{...C.td,width:"32px"}}>
-                      {showCopy&&(
-                        <button
-                          style={{...C.btn("cpy"),padding:"2px 7px",fontSize:"10px"}}
-                          title="Copia gruppo al mese successivo"
-                          onClick={()=>copyEVPair(dip.id,p.id,ev.id)}>
-                          📋
-                        </button>
-                      )}
+                      <button
+                        style={{...C.btn("cpy"),padding:"2px 7px",fontSize:"10px"}}
+                        title={copyTitle}
+                        onClick={()=>copyEVPair(dip.id,p.id,ev.id)}>
+                        📋
+                      </button>
                     </td>
                     <td style={C.td}><select style={{...C.sel,width:"112px",fontSize:"10px"}} value={ev.TipoContributo} onChange={e=>updEV(dip.id,p.id,ev.id,"TipoContributo",e.target.value)}>{TC_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select></td>
                     <td style={C.td}><input style={{...C.inp,width:"108px"}} value={ev.CFAzienda} onChange={e=>updEV(dip.id,p.id,ev.id,"CFAzienda",e.target.value)}/></td>
