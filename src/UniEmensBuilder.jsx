@@ -71,7 +71,7 @@ function initYearRows(dateFrom,dateTo){
 }
 
 const EMPTY_INQ={dateFrom:"",dateTo:"",TipoImpiego:"1",TipoServizio:"4",
-  Contratto:"RALN",Qualifica:"",hasPartTime:false,TipoPartTime:"O",
+  Contratto:"RALN",Qualifica:"",hasPartTime:false,TipoPartTime:"P",
   PercPartTime:"",RegimeFineServizio:"3",CodiceCessazione:"",
   StipTabellare:"0,00",RetribAnzianita:"0,00",
   RetribTeoricaTabellareTFR:"",ImponibileTFRUlterioriElem:"",
@@ -107,7 +107,7 @@ function parseInquadramento(perEl) {
     Contratto: getTxt(inq,"Contratto") || "RALN",
     Qualifica: getTxt(inq,"Qualifica") || "",
     hasPartTime: !!pt,
-    TipoPartTime: pt ? getTxt(pt,"TipoPartTime") : "O",
+    TipoPartTime: pt ? (getTxt(pt,"TipoPartTime")==="O"?"P":getTxt(pt,"TipoPartTime")) : "P",
     PercPartTime: pt ? getTxt(pt,"PercPartTime") : "",
     RegimeFineServizio: getTxt(inq,"RegimeFineServizio") || "3",
   };
@@ -568,7 +568,8 @@ const CAUSALE=[{v:"1",l:"1 – Integrazione"},{v:"5",l:"5 – Sostituzione / mai
 const TIPO_IMPIEGO=[{v:"1",l:"1 – TI tempo pieno"},{v:"2",l:"2 – TI part-time"},{v:"8",l:"8 – TD tempo pieno"},{v:"9",l:"9 – TD part-time"}];
 const TIPO_SERVIZIO=[{v:"4",l:"4 – Ordinario"},{v:"5",l:"5 – Straordinario"},{v:"6",l:"6 – Lavoro autonomo"}];
 const REGIME_FS=[{v:"1",l:"1 – TFR privatistico"},{v:"2",l:"2 – TFR misto"},{v:"3",l:"3 – TFS (INADEL)"}];
-const TIPO_PT=[{v:"O",l:"O – Orizzontale"},{v:"V",l:"V – Verticale"},{v:"M",l:"M – Misto"},{v:"P",l:"P – Verticale ciclico"}];
+/* DMA2 XSD: TipoPartTime = P (Orizzontale), V (Verticale), M (Misto) — NON 'O' (errore enum XSD) */
+const TIPO_PT=[{v:"P",l:"P – Orizzontale"},{v:"V",l:"V – Verticale"},{v:"M",l:"M – Misto"}];
 /* ── TC8 corretto: contributo TFR versato dall'ente ── */
 const TC_OPTS=[{v:"1",l:"1 – CPDEL"},{v:"2",l:"2 – C.Ins."},{v:"3",l:"3 – C.San."},{v:"5",l:"5 – Agg.spec."},{v:"6",l:"6 – Agg.1%"},{v:"7",l:"7 – TFS/INADEL"},{v:"8",l:"8 – TFR (EnteVers.)"},{v:"9",l:"9 – Fondo Cred."}];
 const FG_OPTS=[{v:"2410",l:"2410 – Regione"},{v:"2420",l:"2420 – Provincia"},{v:"2430",l:"2430 – Comune"},{v:"2440",l:"2440 – Comunità montana"},{v:"2450",l:"2450 – Unione comuni"},{v:"2460",l:"2460 – Città metropolitana"},{v:"2711",l:"2711 – Ente pub. ricerca"},{v:"2712",l:"2712 – IPAB"},{v:"2720",l:"2720 – Camera commercio"},{v:"2740",l:"2740 – Consorzio dir.pub."},{v:"2790",l:"2790 – Altro ente pub."}];
@@ -718,7 +719,7 @@ export default function UniEmensBuilder() {
     return {
       id:uid(), CausaleVariazione:"5", GiornoInizio:"", GiornoFine:"",
       TipoImpiego:"1", TipoServizio:"4", Contratto:"RALN", Qualifica:"",
-      hasPartTime:false, TipoPartTime:"O", PercPartTime:"", RegimeFineServizio:"3",
+      hasPartTime:false, TipoPartTime:"P", PercPartTime:"", RegimeFineServizio:"3",
       ImpCPDEL:"", ContribCPDEL:"", Contrib1Perc:"", StipTabellare:"0,00", RetribAnzianita:"0,00",
       regimeTFS:"TFS", ImpTFS:"", ContribTFS:"",
       RetribTeoricaTabellareTFR:"",
@@ -1602,8 +1603,8 @@ export default function UniEmensBuilder() {
 
       <div style={C.hdr}>
         <div>
-          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.4</div>
-          <div style={C.hdrS}>Fix sequenza V1: CodiceCessazione prima di RetribTeoricaTabellareTFR/RetribValutabileTFR · schema XSD V1 completamente mappato</div>
+          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.5</div>
+          <div style={C.hdrS}>Fix TipoPartTime DMA2: P=Orizzontale (non O) · RegimeFineServizio→regimeTFS sync · verifiche pairing EV bidirezionali</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
           <span style={{fontSize:"11px",color:"#94A3B8",fontVariantNumeric:"tabular-nums"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
