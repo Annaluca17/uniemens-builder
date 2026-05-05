@@ -325,12 +325,13 @@ function buildXML(m, a, dips) {
 /* ════ DEDUP ════ */
 function deduplicateEV(dips) {
   let count = 0;
+  const normNum = (s) => toIt(String(round2(parseIt(s))));
   const out = dips.map(d => ({
     ...d,
     periodi: d.periodi.map(p => {
       const seen = new Set();
       const ev = p.enteVersante.filter(e => {
-        const k = `${e.TipoContributo}|${e.CFAzienda}|${e.PRGAZIENDA}|${e.Imponibile}|${e.Contributo}|${e.AnnoMeseErogazione}`;
+        const k = `${e.TipoContributo}|${e.CFAzienda}|${e.PRGAZIENDA}|${normNum(e.Imponibile)}|${normNum(e.Contributo)}|${e.AnnoMeseErogazione}`;
         if (seen.has(k)) { count++; return false; }
         seen.add(k); return true;
       });
@@ -502,9 +503,18 @@ function generatePDF(m, a, dips) {
   html += `</body></html>`;
 
   const w = window.open("", "_blank");
-  w.document.write(html);
-  w.document.close();
-  setTimeout(() => w.print(), 600);
+  if (!w) {
+    alert("Popup bloccato dal browser. Consenti i popup per questa pagina per generare il PDF.");
+    return;
+  }
+  try {
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => { try { w.print(); } catch (_) {} }, 600);
+  } catch (err) {
+    w.close();
+    alert("Errore durante la generazione del PDF: " + (err?.message || "errore sconosciuto."));
+  }
 }
 
 /* ════ STYLES ════ */
@@ -646,12 +656,21 @@ export default function UniEmensBuilder() {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
+    if (file.size > 10 * 1024 * 1024) {
+      alert("File troppo grande (max 10 MB). Verificare che sia un file UniEmens valido.");
+      return;
+    }
     const reader = new FileReader();
+    reader.onerror = () => alert("Errore durante la lettura del file. Verificare che il file non sia corrotto.");
     reader.onload = (ev) => {
-      const result = parseUniEmensXML(ev.target.result);
-      if (result.error) { alert("Errore import: " + result.error); return; }
-      const selected = new Set(result.workers.map(w => w.id));
-      setImportModal({ ...result, selected });
+      try {
+        const result = parseUniEmensXML(ev.target.result);
+        if (result.error) { alert("Errore import: " + result.error); return; }
+        const selected = new Set(result.workers.map(w => w.id));
+        setImportModal({ ...result, selected });
+      } catch (err) {
+        alert("Errore durante l'analisi del file XML: " + (err?.message || "errore sconosciuto."));
+      }
     };
     reader.readAsText(file, "UTF-8");
   };
@@ -825,6 +844,13 @@ export default function UniEmensBuilder() {
 
   /* Copia riga/coppia al mese successivo — disponibile su tutte le righe EV */
   const copyEVPair=(dipId,perId,evId)=>{
+    const srcDip=dips.find(d=>d.id===dipId);
+    const srcPer=srcDip?.periodi.find(p=>p.id===perId);
+    const srcEv=srcPer?.enteVersante.find(e=>e.id===evId);
+    if(srcEv&&!srcEv.AnnoMeseErogazione){
+      alert("Impossibile copiare: AnnoMeseErogazione vuoto.\nCompilare prima la data di erogazione (es. 2024-01).");
+      return;
+    }
     setDips(ds=>ds.map(d=>{
       if(d.id!==dipId)return d;
       return{...d,periodi:d.periodi.map(p=>{
