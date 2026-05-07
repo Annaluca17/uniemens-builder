@@ -241,12 +241,10 @@ function parseUniEmensXML(xmlStr) {
   const workers = Array.from(d0s).map(d0 => {
     const cf = getTxt(d0,"CFLavoratore");
     if (!cf) errors.push(`Worker senza CFLavoratore: ${getTxt(d0,"Cognome")} ${getTxt(d0,"Nome")}`);
-    const v1s = Array.from(d0.querySelectorAll("V1_PeriodoPrecedente"));
-    const e0s = Array.from(d0.querySelectorAll("E0_PeriodoNelMese"));
-    const allPeriods = [
-      ...v1s.map(el => ({ el, tag: "V1_PeriodoPrecedente" })),
-      ...e0s.map(el => ({ el, tag: "E0_PeriodoNelMese" })),
-    ];
+    /* preserva l'ordine del documento: E0 deve precedere V1 nello stesso D0 per XSD */
+    const allPeriods = Array.from(d0.children)
+      .filter(el => el.tagName === "E0_PeriodoNelMese" || el.tagName === "V1_PeriodoPrecedente")
+      .map(el => ({ el, tag: el.tagName }));
     if (allPeriods.length === 0) errors.push(`${cf || "?"}: nessun periodo trovato, importata solo anagrafica.`);
     return {
       id: uid(),
@@ -308,7 +306,10 @@ function buildXML(m, a, dips, mode = "variazione") {
   x += `      <ListaPosPA${isClassico ? "" : ` TipoListaPosPA="1"`}>\n          <PRGAZIENDA>${esc(a.PRGAZIENDA || "00000")}</PRGAZIENDA>\n          <CFRappresentanteFirmatario>${esc(a.CFRappresentanteFirmatario)}</CFRappresentanteFirmatario>\n          <ISTAT>${esc(a.ISTAT)}</ISTAT>\n          <FormaGiuridica>${esc(a.FormaGiuridica)}</FormaGiuridica>\n`;
   x += `          <PosPA>\n`;
   for (const d of dips) {
-    const periodi = isClassico ? d.periodi : d.periodi.filter(p => p.tipoQuadro !== "E0");
+    /* classico: E0 sempre prima di V1 nello stesso D0 (vincolo XSD sequenza) */
+    const periodi = isClassico
+      ? [...d.periodi.filter(p => p.tipoQuadro === "E0"), ...d.periodi.filter(p => p.tipoQuadro !== "E0")]
+      : d.periodi.filter(p => p.tipoQuadro !== "E0");
     x += `              <D0_DenunciaIndividuale>\n`;
     x += `                  <CFLavoratore>${esc(d.CFLavoratore)}</CFLavoratore>\n                  <Cognome>${esc(d.Cognome)}</Cognome>\n                  <Nome>${esc(d.Nome)}</Nome>\n`;
     x += `                  <DatiSedeLavoro>\n                      <CodiceComune>${esc(d.CodiceComune)}</CodiceComune>\n                      <CAP>${esc(d.CAP)}</CAP>\n                  </DatiSedeLavoro>\n`;
