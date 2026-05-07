@@ -185,9 +185,9 @@ function parsePeriodEl(el, tag, cfAz, prg) {
   const evEls = el.querySelectorAll("EnteVersante");
   const evList = evEls.length > 0
     ? pairEVRows(Array.from(evEls).map(ev => parseEVEl(ev, cfAz, prg)))
-    : mkDefaultEVPair(cfAz, prg, gest.ImpCPDEL, gest.ImpCredito);
+    : [];
   return {
-    id: uid(), tipoQuadro: tag === "E0_DatiRetributivi" ? "E0" : "V1",
+    id: uid(), tipoQuadro: tag === "E0_PeriodoNelMese" ? "E0" : "V1",
     CausaleVariazione: causale,
     GiornoInizio: getTxt(el,"GiornoInizio"), GiornoFine: getTxt(el,"GiornoFine"),
     CodiceCessazione: getTxt(el,"CodiceCessazione"),
@@ -234,10 +234,10 @@ function parseUniEmensXML(xmlStr) {
     const cf = getTxt(d0,"CFLavoratore");
     if (!cf) errors.push(`Worker senza CFLavoratore: ${getTxt(d0,"Cognome")} ${getTxt(d0,"Nome")}`);
     const v1s = Array.from(d0.querySelectorAll("V1_PeriodoPrecedente"));
-    const e0s = Array.from(d0.querySelectorAll("E0_DatiRetributivi"));
+    const e0s = Array.from(d0.querySelectorAll("E0_PeriodoNelMese"));
     const allPeriods = [
       ...v1s.map(el => ({ el, tag: "V1_PeriodoPrecedente" })),
-      ...e0s.map(el => ({ el, tag: "E0_DatiRetributivi" })),
+      ...e0s.map(el => ({ el, tag: "E0_PeriodoNelMese" })),
     ];
     if (allPeriods.length === 0) errors.push(`${cf || "?"}: nessun periodo trovato, importata solo anagrafica.`);
     return {
@@ -394,6 +394,8 @@ function validateAll(dips) {
   for (const d of dips) {
     for (const p of d.periodi) {
       if (p.tipoQuadro === "E0") continue;
+      /* congruità EV applicabile solo se esiste almeno una riga EV con mese valorizzato */
+      if (!p.enteVersante.some(e => e.AnnoMeseErogazione)) continue;
       const who = `${d.Cognome} ${d.Nome}`;
       const period = `${p.GiornoInizio} → ${p.GiornoFine}`;
       /* ── CPDEL imponibile (00171I bidirezionale) ── */
@@ -790,28 +792,21 @@ export default function UniEmensBuilder() {
   };
 
   /* ── mkPer ── */
-  const mkPer = () => {
-    const tc1id=uid(), tc9id=uid(), tc7id=uid();
-    return {
-      id:uid(), tipoQuadro:"V1", CausaleVariazione:"5", GiornoInizio:"", GiornoFine:"",
-      TipoImpiego:"1", TipoServizio:"4", Contratto:"RALN", Qualifica:"",
-      hasPartTime:false, TipoPartTime:"P", PercPartTime:"", RegimeFineServizio:"3",
-      GiorniUtiliFiniPensionistici:"",
-      ImpCPDEL:"", ContribCPDEL:"", Contrib1Perc:"", StipTabellare:"0,00", RetribAnzianita:"0,00",
-      regimeTFS:"TFS", ImpTFS:"", ContribTFS:"",
-      RetribTeoricaTabellareTFR:"",
-      ImponibileTFRUlterioriElem:"",
-      ContributoTFRUlterioriElem:"",
-      RetribValutabileTFR:"",
-      ImpCredito:"", ContribCredito:"",
-      CodiceCessazione:"",
-      enteVersante:[
-        {id:tc1id, TipoContributo:"1", CFAzienda:a.CFAzienda, PRGAZIENDA:a.PRGAZIENDA||"00000", Imponibile:"", Contributo:"", AnnoMeseErogazione:"", Aliquota:"2", pairedTc9:tc9id},
-        {id:tc9id, TipoContributo:"9", CFAzienda:a.CFAzienda, PRGAZIENDA:a.PRGAZIENDA||"00000", Imponibile:"", Contributo:"", AnnoMeseErogazione:"", Aliquota:"2", pairedWith:tc1id},
-        {id:tc7id, TipoContributo:"7", CFAzienda:a.CFAzienda, PRGAZIENDA:a.PRGAZIENDA||"00000", Imponibile:"", Contributo:"", AnnoMeseErogazione:"", Aliquota:"2"},
-      ],
-    };
-  };
+  const mkPer = () => ({
+    id:uid(), tipoQuadro:"V1", CausaleVariazione:"5", GiornoInizio:"", GiornoFine:"",
+    TipoImpiego:"1", TipoServizio:"4", Contratto:"RALN", Qualifica:"",
+    hasPartTime:false, TipoPartTime:"P", PercPartTime:"", RegimeFineServizio:"3",
+    GiorniUtiliFiniPensionistici:"",
+    ImpCPDEL:"", ContribCPDEL:"", Contrib1Perc:"", StipTabellare:"0,00", RetribAnzianita:"0,00",
+    regimeTFS:"TFS", ImpTFS:"", ContribTFS:"",
+    RetribTeoricaTabellareTFR:"",
+    ImponibileTFRUlterioriElem:"",
+    ContributoTFRUlterioriElem:"",
+    RetribValutabileTFR:"",
+    ImpCredito:"", ContribCredito:"",
+    CodiceCessazione:"",
+    enteVersante:[],
+  });
 
   /* ── Dipendenti CRUD ── */
   const addDip=()=>{ const d={id:uid(),CFLavoratore:"",Cognome:"",Nome:"",CodiceComune:"",CAP:"",periodi:[]}; setDips(p=>[...p,d]); setXDip(d.id); setXPer(null); };
@@ -971,6 +966,7 @@ export default function UniEmensBuilder() {
   });
   const hasWarn=(p)=>{
     if(p.tipoQuadro==="E0")return false;
+    if(!p.enteVersante.some(e=>e.AnnoMeseErogazione))return false;
     if(!p.ImpCPDEL&&!p.ImpTFS&&!p.ImpCredito)return false;
     const{sumImpTC1,sumImpTC9,sumContribTC1,sumImpTC7,sumImpTC8,sumContribTC7,sumContribTC8,sumContribTC9}=evSums(p);
     const lc=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
