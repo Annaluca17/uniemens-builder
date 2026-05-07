@@ -246,6 +246,16 @@ function parseUniEmensXML(xmlStr) {
       .filter(el => el.tagName === "E0_PeriodoNelMese" || el.tagName === "V1_PeriodoPrecedente")
       .map(el => ({ el, tag: el.tagName }));
     if (allPeriods.length === 0) errors.push(`${cf || "?"}: nessun periodo trovato, importata solo anagrafica.`);
+    const periodi = allPeriods.map(({ el, tag }) => parsePeriodEl(el, tag, cfAz, prg));
+    /* ── congruità imponibili CPDEL vs Credito ── */
+    const who = `${getTxt(d0,"Cognome")} ${getTxt(d0,"Nome")} (${cf})`;
+    periodi.forEach(p => {
+      if (p.ImpCPDEL && p.ImpCredito) {
+        const diff = round2(parseIt(p.ImpCPDEL) - parseIt(p.ImpCredito));
+        if (Math.abs(diff) > 0.005)
+          errors.push(`⚠ ${who} — ${p.GiornoInizio}→${p.GiornoFine}: Imp. CPDEL (${p.ImpCPDEL}) ≠ Imp. Credito (${p.ImpCredito}) · differenza ${diff > 0 ? "+" : ""}${toIt(String(diff))}`);
+      }
+    });
     return {
       id: uid(),
       CFLavoratore: cf,
@@ -253,7 +263,7 @@ function parseUniEmensXML(xmlStr) {
       Nome: getTxt(d0,"Nome"),
       CodiceComune: getTxt(d0,"CodiceComune"),
       CAP: getTxt(d0,"CAP"),
-      periodi: allPeriods.map(({ el, tag }) => parsePeriodEl(el, tag, cfAz, prg)),
+      periodi,
     };
   });
 
@@ -760,11 +770,11 @@ export default function UniEmensBuilder() {
     });
     const totImpTFS = hasTFS ? sumOf("tc7Imp") : "";
     const totContTFS = hasTFS ? sumOf("tc7Cont") : "";
-    /* RetribTeoricaTabellareTFR = ImpTFS × 1,25; RetribValutabileTFR = ImpTFS × 1,25 + UlterioriElem */
+    /* RetribValutabileTFR = ImpTFS × 1,25 + UlterioriElem
+       RetribTeoricaTabellareTFR: valore tabellare HR — preso dall'input inq, non calcolato */
     const isTFR = (inq.regimeTFS||"TFS")==="TFR";
-    const base125 = isTFR ? toIt(String(round2(parseIt(totImpTFS||"0")*1.25))) : "";
     const ultImpInq = parseIt(inq.ImponibileTFRUlterioriElem||"0");
-    const rvTFR = isTFR ? toIt(String(round2(parseIt(totImpTFS||"0")*1.25 + ultImpInq))) : "";
+    const rvTFR = isTFR ? toIt(String(round2(round2(parseIt(totImpTFS||"0")*1.25) + ultImpInq))) : "";
     const periodo={
       id:uid(),tipoQuadro:"V1",CausaleVariazione:"5",GiornoInizio:inq.dateFrom,GiornoFine:inq.dateTo,
       TipoImpiego:inq.TipoImpiego,TipoServizio:inq.TipoServizio,Contratto:inq.Contratto,Qualifica:inq.Qualifica,
@@ -775,7 +785,7 @@ export default function UniEmensBuilder() {
       StipTabellare:inq.StipTabellare||"0,00",RetribAnzianita:inq.RetribAnzianita||"0,00",
       regimeTFS:inq.regimeTFS||"TFS",
       ImpTFS:totImpTFS,ContribTFS:totContTFS,
-      RetribTeoricaTabellareTFR:base125,
+      RetribTeoricaTabellareTFR:inq.RetribTeoricaTabellareTFR||"",
       ImponibileTFRUlterioriElem:inq.ImponibileTFRUlterioriElem||"",
       ContributoTFRUlterioriElem:inq.ContributoTFRUlterioriElem||"",
       RetribValutabileTFR:rvTFR,
@@ -832,22 +842,18 @@ export default function UniEmensBuilder() {
       if(isTFRMode){
         const imp=p.ImpTFS||"0";
         const ult=p.ImponibileTFRUlterioriElem||"";
-        const base=round2(parseIt(imp)*1.25);
-        u.RetribTeoricaTabellareTFR=toIt(String(base));
-        u.RetribValutabileTFR=toIt(String(round2(base+parseIt(ult||"0"))));
+        u.RetribValutabileTFR=toIt(String(round2(round2(parseIt(imp)*1.25)+parseIt(ult||"0"))));
       }
     }
     /* TFR auto-calc:
-       RetribTeoricaTabellareTFR = ImponibileTFR × 1,25  (porzione tabellare)
-       RetribValutabileTFR       = ImponibileTFR × 1,25 + ImponibileTFRUlterioriElem
+       RetribValutabileTFR = ImponibileTFR × 1,25 + ImponibileTFRUlterioriElem
+       RetribTeoricaTabellareTFR è un valore tabellare HR — NON si calcola, si inserisce manualmente.
        (rif. circ. 105/2012, msg. 2440/2019) */
     const isTFR=(k==="regimeTFS"?v:p.regimeTFS)==="TFR";
     if(isTFR&&(k==="ImpTFS"||k==="ImponibileTFRUlterioriElem"||k==="regimeTFS")){
       const imp = k==="ImpTFS"?v:(p.ImpTFS||"0");
       const ult = k==="ImponibileTFRUlterioriElem"?v:(p.ImponibileTFRUlterioriElem||"");
-      const base = round2(parseIt(imp)*1.25);
-      u.RetribTeoricaTabellareTFR = toIt(String(base));
-      u.RetribValutabileTFR       = toIt(String(round2(base + parseIt(ult||"0"))));
+      u.RetribValutabileTFR = toIt(String(round2(round2(parseIt(imp)*1.25) + parseIt(ult||"0"))));
     }
     return{...p,...u};
   })}:d));
