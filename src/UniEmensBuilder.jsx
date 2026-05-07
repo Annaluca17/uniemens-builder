@@ -396,11 +396,17 @@ function validateAll(dips) {
   const warns = [];
   for (const d of dips) {
     for (const p of d.periodi) {
-      if (p.tipoQuadro === "E0") continue;
-      /* congruità EV applicabile solo se esiste almeno una riga EV con mese valorizzato */
-      if (!p.enteVersante.some(e => e.AnnoMeseErogazione)) continue;
       const who = `${d.Cognome} ${d.Nome}`;
       const period = `${p.GiornoInizio} → ${p.GiornoFine}`;
+      /* ── Congruità imponibili CPDEL vs Credito (tutti i periodi, E0 e V1) ── */
+      if (p.ImpCPDEL && p.ImpCredito) {
+        const diffCC = round2(parseIt(p.ImpCPDEL) - parseIt(p.ImpCredito));
+        if (Math.abs(diffCC) > 0.005)
+          warns.push({ code:"CPDEL≠Cred", who, period, val:toIt(p.ImpCPDEL), limit:toIt(p.ImpCredito), excess:toIt(String(diffCC)), field:`Imp. CPDEL ≠ Imp. Credito — ${diffCC>0?"CPDEL eccede Credito":"Credito eccede CPDEL"}` });
+      }
+      /* controlli EV: solo V1 con almeno una riga EV valorizzata */
+      if (p.tipoQuadro === "E0") continue;
+      if (!p.enteVersante.some(e => e.AnnoMeseErogazione)) continue;
       /* ── CPDEL imponibile (00171I bidirezionale) ── */
       if (p.ImpCPDEL) {
         const sumImpTC1 = round2(p.enteVersante.filter(e=>e.TipoContributo==="1").reduce((s,e)=>s+parseIt(e.Imponibile),0));
