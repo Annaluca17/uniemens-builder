@@ -319,6 +319,11 @@ function buildXML(m, a, dips, mode = "variazione") {
         x += `                  <E0_PeriodoNelMese>\n`;
         x += `                      <GiornoInizio>${esc(p.GiornoInizio)}</GiornoInizio>\n                      <GiornoFine>${esc(p.GiornoFine)}</GiornoFine>\n`;
         x += emitInqGest(p);
+        /* RetribTeoricaTabellareTFR e RetribValutabileTFR: obbligatori per E0 con TFR (errori 00383I/00116I/00120I/00720I) */
+        if (p.regimeTFS === "TFR" && p.ImpTFS) {
+          x += `                      <RetribTeoricaTabellareTFR>${toIt(p.RetribTeoricaTabellareTFR)}</RetribTeoricaTabellareTFR>\n`;
+          x += `                      <RetribValutabileTFR>${toIt(p.RetribValutabileTFR)}</RetribValutabileTFR>\n`;
+        }
         x += `                  </E0_PeriodoNelMese>\n`;
       } else {
         /* ── V1_PeriodoPrecedente ── */
