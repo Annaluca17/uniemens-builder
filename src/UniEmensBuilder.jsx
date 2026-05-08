@@ -76,7 +76,9 @@ const EMPTY_INQ={dateFrom:"",dateTo:"",TipoImpiego:"1",TipoServizio:"4",
   GiorniUtiliFiniPensionistici:"",
   StipTabellare:"0,00",RetribAnzianita:"0,00",
   RetribTeoricaTabellareTFR:"",ImponibileTFRUlterioriElem:"",
-  ContributoTFRUlterioriElem:"",RetribValutabileTFR:""};
+  ContributoTFRUlterioriElem:"",RetribValutabileTFR:"",
+  CodMotivoUtilizzo:"",dmuDataAtto:"",dmuIdentAtto:"",dmuNumeroRegistro:"",
+  tipoQuadro:"E0"};
 
 
 /* ════════════════════════════════════════════════════════════
@@ -178,17 +180,25 @@ function parsePeriodEl(el, tag, cfAz, prg) {
   const inq = parseInquadramento(el);
   const gest = parseGestioni(el);
   const causale = tag === "V1_PeriodoPrecedente" ? (el.getAttribute("CausaleVariazione") || "5") : "5";
+  const codMotivoUtilizzo = tag === "V1_PeriodoPrecedente" ? (el.getAttribute("CodMotivoUtilizzo") || "") : "";
+  /* DescrMotivoUtilizzo: presente in V1 causale 7 */
+  const dmuEl = el.querySelector("DescrMotivoUtilizzo");
+  const dmuDataAtto      = dmuEl ? getTxt(dmuEl,"DataAtto")       : "";
+  const dmuIdentAtto     = dmuEl ? getTxt(dmuEl,"IdentAtto")      : "";
+  const dmuNumeroRegistro= dmuEl ? getTxt(dmuEl,"NumeroRegistro") : "";
   /* RetribTeoricaTabellareTFR e RetribValutabileTFR: figli diretti di V1/E0 */
   const rttTFR = getTxt(el,"RetribTeoricaTabellareTFR") || "";
   const rvTFR  = getTxt(el,"RetribValutabileTFR")       || "";
   const evEls = el.querySelectorAll("EnteVersante");
   const evList = evEls.length > 0
     ? pairEVRows(Array.from(evEls).map(ev => parseEVEl(ev, cfAz, prg)))
-    : mkDefaultEVPair(cfAz, prg, gest.ImpCPDEL, gest.ImpCredito);
+    : [];
   return {
-    id: uid(), CausaleVariazione: causale,
+    id: uid(), tipoQuadro: tag === "E0_PeriodoNelMese" ? "E0" : "V1",
+    CausaleVariazione: causale, CodMotivoUtilizzo: codMotivoUtilizzo,
     GiornoInizio: getTxt(el,"GiornoInizio"), GiornoFine: getTxt(el,"GiornoFine"),
     CodiceCessazione: getTxt(el,"CodiceCessazione"),
+    dmuDataAtto, dmuIdentAtto, dmuNumeroRegistro,
     ...inq, ...gest,
     RetribTeoricaTabellareTFR: rttTFR,
     RetribValutabileTFR: rvTFR,
@@ -205,7 +215,8 @@ function parseUniEmensXML(xmlStr) {
   const listaPosPA = doc.querySelector("ListaPosPA");
   const cfAz = getTxt(doc,"CFAzienda");
   const prg = listaPosPA ? getTxt(listaPosPA,"PRGAZIENDA") : "00000";
-  const isVariazione = listaPosPA?.getAttribute("TipoListaPosPA") === "1";
+  const tipoListaPA = listaPosPA?.getAttribute("TipoListaPosPA") || "1";
+  const isVariazione = tipoListaPA === "1";
 
   const mittente = {
     CFPersonaMittente: getTxt(doc,"CFPersonaMittente"),
@@ -230,10 +241,21 @@ function parseUniEmensXML(xmlStr) {
   const workers = Array.from(d0s).map(d0 => {
     const cf = getTxt(d0,"CFLavoratore");
     if (!cf) errors.push(`Worker senza CFLavoratore: ${getTxt(d0,"Cognome")} ${getTxt(d0,"Nome")}`);
-    const v1s = Array.from(d0.querySelectorAll("V1_PeriodoPrecedente"));
-    const e0s = Array.from(d0.querySelectorAll("E0_DatiRetributivi"));
-    const periodoEls = v1s.length > 0 ? { els: v1s, tag: "V1_PeriodoPrecedente" } : { els: e0s, tag: "E0_DatiRetributivi" };
-    if (periodoEls.els.length === 0) errors.push(`${cf || "?"}: nessun periodo trovato, importata solo anagrafica.`);
+    /* preserva l'ordine del documento: E0 deve precedere V1 nello stesso D0 per XSD */
+    const allPeriods = Array.from(d0.children)
+      .filter(el => el.tagName === "E0_PeriodoNelMese" || el.tagName === "V1_PeriodoPrecedente")
+      .map(el => ({ el, tag: el.tagName }));
+    if (allPeriods.length === 0) errors.push(`${cf || "?"}: nessun periodo trovato, importata solo anagrafica.`);
+    const periodi = allPeriods.map(({ el, tag }) => parsePeriodEl(el, tag, cfAz, prg));
+    /* ── congruità imponibili CPDEL vs Credito ── */
+    const who = `${getTxt(d0,"Cognome")} ${getTxt(d0,"Nome")} (${cf})`;
+    periodi.forEach(p => {
+      if (p.ImpCPDEL && p.ImpCredito) {
+        const diff = round2(parseIt(p.ImpCPDEL) - parseIt(p.ImpCredito));
+        if (Math.abs(diff) > 0.005)
+          errors.push(`⚠ ${who} — ${p.GiornoInizio}→${p.GiornoFine}: Imp. CPDEL (${p.ImpCPDEL}) ≠ Imp. Credito (${p.ImpCredito}) · differenza ${diff > 0 ? "+" : ""}${toIt(String(diff))}`);
+      }
+    });
     return {
       id: uid(),
       CFLavoratore: cf,
@@ -241,7 +263,7 @@ function parseUniEmensXML(xmlStr) {
       Nome: getTxt(d0,"Nome"),
       CodiceComune: getTxt(d0,"CodiceComune"),
       CAP: getTxt(d0,"CAP"),
-      periodi: periodoEls.els.map(el => parsePeriodEl(el, periodoEls.tag, cfAz, prg)),
+      periodi,
     };
   });
 
@@ -252,69 +274,98 @@ function parseUniEmensXML(xmlStr) {
 /* ════════════════════════════════════════════════════════════
    XML BUILDER — unico PosPA (fix 00124I) + causale 6 + TFR
 ════════════════════════════════════════════════════════════ */
-function buildXML(m, a, dips) {
+/* ── helper condiviso: emette InquadramentoLavPA + Gestioni (usato da E0 e V1 non-C6/C7) ── */
+function emitInqGest(p) {
+  let s = `                      <InquadramentoLavPA>\n                          <TipoImpiego>${esc(p.TipoImpiego)}</TipoImpiego>\n                          <TipoServizio>${esc(p.TipoServizio)}</TipoServizio>\n                          <Contratto>${esc(p.Contratto)}</Contratto>\n`;
+  if (p.Qualifica) s += `                          <Qualifica>${esc(p.Qualifica)}</Qualifica>\n`;
+  if (p.hasPartTime && (p.TipoImpiego==="8"||p.TipoImpiego==="18")) s += `                          <PartTimePA>\n                              <TipoPartTime>${esc(p.TipoPartTime)}</TipoPartTime>\n                              <PercPartTime>${esc(p.PercPartTime)}</PercPartTime>\n                          </PartTimePA>\n`;
+  s += `                          <RegimeFineServizio>${esc(p.RegimeFineServizio)}</RegimeFineServizio>\n                      </InquadramentoLavPA>\n`;
+  s += `                      <Gestioni>\n`;
+  if (p.ImpCPDEL) {
+    s += `                          <GestPensionistica>\n                              <CodGestione>2</CodGestione>\n                              <Imponibile>${toIt(p.ImpCPDEL)}</Imponibile>\n                              <Contributo>${toIt(p.ContribCPDEL)}</Contributo>\n`;
+    if (p.Contrib1Perc) s += `                              <Contrib1PerCento>${toIt(p.Contrib1Perc)}</Contrib1PerCento>\n`;
+    if (p.TipoImpiego==="2" && p.GiorniUtiliFiniPensionistici) s += `                              <GiorniUtiliFiniPensionistici>${esc(p.GiorniUtiliFiniPensionistici)}</GiorniUtiliFiniPensionistici>\n`;
+    s += `                              <StipendioTabellare>${toIt(p.StipTabellare)}</StipendioTabellare>\n                              <RetribIndivAnzianita>${toIt(p.RetribAnzianita)}</RetribIndivAnzianita>\n                          </GestPensionistica>\n`;
+  }
+  if (p.ImpTFS) {
+    const T = p.regimeTFS === "TFR" ? "TFR" : "TFS";
+    s += `                          <GestPrevidenziale>\n                              <CodGestione>6</CodGestione>\n                              <Imponibile${T}>${toIt(p.ImpTFS)}</Imponibile${T}>\n                              <Contributo${T}>${toIt(p.ContribTFS)}</Contributo${T}>\n`;
+    if (p.regimeTFS === "TFR") {
+      const ultImp = parseIt(p.ImponibileTFRUlterioriElem);
+      const ultCon = parseIt(p.ContributoTFRUlterioriElem);
+      if (ultImp > 0 && ultCon > 0) {
+        s += `                              <ImponibileTFRUlterioriElem>${toIt(p.ImponibileTFRUlterioriElem)}</ImponibileTFRUlterioriElem>\n`;
+        s += `                              <ContributoTFRUlterioriElem>${toIt(p.ContributoTFRUlterioriElem)}</ContributoTFRUlterioriElem>\n`;
+      }
+    }
+    s += `                          </GestPrevidenziale>\n`;
+  }
+  if (p.ImpCredito) {
+    s += `                          <GestCredito>\n                              <CodGestione>9</CodGestione>\n                              <Imponibile>${toIt(p.ImpCredito)}</Imponibile>\n                              <Contributo>${toIt(p.ContribCredito)}</Contributo>\n                          </GestCredito>\n`;
+  }
+  s += `                      </Gestioni>\n`;
+  return s;
+}
+
+/* mode="variazione" → TipoListaPosPA="1", solo V1; mode="classico" → TipoListaPosPA="0", E0+V1 */
+function buildXML(m, a, dips, mode = "variazione") {
+  const isClassico = mode === "classico";
   let x = `<?xml version="1.0" encoding="UTF-8"?>\n<DenunceMensili>\n`;
   x += `   <DatiMittente Tipo="1">\n      <CFPersonaMittente>${esc(m.CFPersonaMittente)}</CFPersonaMittente>\n      <RagSocMittente>${esc(m.RagSocMittente)}</RagSocMittente>\n      <CFMittente>${esc(m.CFMittente)}</CFMittente>\n      <CFSoftwarehouse>${esc(m.CFSoftwarehouse)}</CFSoftwarehouse>\n      <SedeINPS>${esc(m.SedeINPS)}</SedeINPS>\n   </DatiMittente>\n`;
   x += `   <Azienda>\n      <AnnoMeseDenuncia>${esc(a.AnnoMeseDenuncia)}</AnnoMeseDenuncia>\n      <CFAzienda>${esc(a.CFAzienda)}</CFAzienda>\n      <RagSocAzienda>${esc(a.RagSocAzienda)}</RagSocAzienda>\n`;
-  x += `      <ListaPosPA TipoListaPosPA="1">\n          <PRGAZIENDA>${esc(a.PRGAZIENDA || "00000")}</PRGAZIENDA>\n          <CFRappresentanteFirmatario>${esc(a.CFRappresentanteFirmatario)}</CFRappresentanteFirmatario>\n          <ISTAT>${esc(a.ISTAT)}</ISTAT>\n          <FormaGiuridica>${esc(a.FormaGiuridica)}</FormaGiuridica>\n`;
+  x += `      <ListaPosPA${isClassico ? "" : ` TipoListaPosPA="1"`}>\n          <PRGAZIENDA>${esc(a.PRGAZIENDA || "00000")}</PRGAZIENDA>\n          <CFRappresentanteFirmatario>${esc(a.CFRappresentanteFirmatario)}</CFRappresentanteFirmatario>\n          <ISTAT>${esc(a.ISTAT)}</ISTAT>\n          <FormaGiuridica>${esc(a.FormaGiuridica)}</FormaGiuridica>\n`;
   x += `          <PosPA>\n`;
   for (const d of dips) {
+    /* classico: E0 sempre prima di V1 nello stesso D0 (vincolo XSD sequenza) */
+    const periodi = isClassico
+      ? [...d.periodi.filter(p => p.tipoQuadro === "E0"), ...d.periodi.filter(p => p.tipoQuadro !== "E0")]
+      : d.periodi.filter(p => p.tipoQuadro !== "E0");
     x += `              <D0_DenunciaIndividuale>\n`;
     x += `                  <CFLavoratore>${esc(d.CFLavoratore)}</CFLavoratore>\n                  <Cognome>${esc(d.Cognome)}</Cognome>\n                  <Nome>${esc(d.Nome)}</Nome>\n`;
     x += `                  <DatiSedeLavoro>\n                      <CodiceComune>${esc(d.CodiceComune)}</CodiceComune>\n                      <CAP>${esc(d.CAP)}</CAP>\n                  </DatiSedeLavoro>\n`;
-    for (const p of d.periodi) {
-      x += `                  <V1_PeriodoPrecedente CausaleVariazione="${esc(p.CausaleVariazione)}">\n`;
-      x += `                      <GiornoInizio>${esc(p.GiornoInizio)}</GiornoInizio>\n                      <GiornoFine>${esc(p.GiornoFine)}</GiornoFine>\n`;
-
-      /* ── FIX 00126I: causale 6 = solo date, nessun altro elemento ── */
-      if (p.CausaleVariazione !== "6") {
-        x += `                      <InquadramentoLavPA>\n                          <TipoImpiego>${esc(p.TipoImpiego)}</TipoImpiego>\n                          <TipoServizio>${esc(p.TipoServizio)}</TipoServizio>\n                          <Contratto>${esc(p.Contratto)}</Contratto>\n                          <Qualifica>${esc(p.Qualifica)}</Qualifica>\n`;
-        if (p.hasPartTime && (p.TipoImpiego==="8"||p.TipoImpiego==="18")) x += `                          <PartTimePA>\n                              <TipoPartTime>${esc(p.TipoPartTime)}</TipoPartTime>\n                              <PercPartTime>${esc(p.PercPartTime)}</PercPartTime>\n                          </PartTimePA>\n`;
-        x += `                          <RegimeFineServizio>${esc(p.RegimeFineServizio)}</RegimeFineServizio>\n                      </InquadramentoLavPA>\n`;
-        x += `                      <Gestioni>\n`;
-        if (p.ImpCPDEL) {
-          x += `                          <GestPensionistica>\n                              <CodGestione>2</CodGestione>\n                              <Imponibile>${toIt(p.ImpCPDEL)}</Imponibile>\n                              <Contributo>${toIt(p.ContribCPDEL)}</Contributo>\n`;
-          if (p.Contrib1Perc) x += `                              <Contrib1PerCento>${toIt(p.Contrib1Perc)}</Contrib1PerCento>\n`;
-          /* GiorniUtiliFiniPensionistici: obbligatorio quando TipoImpiego=2 (Giornaliero), max 27 */
-          if (p.TipoImpiego==="2" && p.GiorniUtiliFiniPensionistici) x += `                              <GiorniUtiliFiniPensionistici>${esc(p.GiorniUtiliFiniPensionistici)}</GiorniUtiliFiniPensionistici>\n`;
-          x += `                              <StipendioTabellare>${toIt(p.StipTabellare)}</StipendioTabellare>\n                              <RetribIndivAnzianita>${toIt(p.RetribAnzianita)}</RetribIndivAnzianita>\n                          </GestPensionistica>\n`;
-        }
-        if (p.ImpTFS) {
-          const T = p.regimeTFS === "TFR" ? "TFR" : "TFS";
-          x += `                          <GestPrevidenziale>\n                              <CodGestione>6</CodGestione>\n                              <Imponibile${T}>${toIt(p.ImpTFS)}</Imponibile${T}>\n                              <Contributo${T}>${toIt(p.ContribTFS)}</Contributo${T}>\n`;
-          if (p.regimeTFS === "TFR") {
-            /* ImponibileTFRUlterioriElem + ContributoTFRUlterioriElem: emessi SOLO se entrambi > 0.
-               Per causale 5 senza CodiceCessazione il campo NON è valorizzabile (errore 00603I).
-               RetribTeoricaTabellareTFR e RetribValutabileTFR vengono emessi a livello V1 (fuori da GestPrevidenziale). */
-            const ultImp = parseIt(p.ImponibileTFRUlterioriElem);
-            const ultCon = parseIt(p.ContributoTFRUlterioriElem);
-            if (ultImp > 0 && ultCon > 0) {
-              x += `                              <ImponibileTFRUlterioriElem>${toIt(p.ImponibileTFRUlterioriElem)}</ImponibileTFRUlterioriElem>\n`;
-              x += `                              <ContributoTFRUlterioriElem>${toIt(p.ContributoTFRUlterioriElem)}</ContributoTFRUlterioriElem>\n`;
-            }
-          }
-          x += `                          </GestPrevidenziale>\n`;
-        }
-        if (p.ImpCredito) {
-          x += `                          <GestCredito>\n                              <CodGestione>9</CodGestione>\n                              <Imponibile>${toIt(p.ImpCredito)}</Imponibile>\n                              <Contributo>${toIt(p.ContribCredito)}</Contributo>\n                          </GestCredito>\n`;
-        }
-        x += `                      </Gestioni>\n`;
-        /* Sequenza XSD V1_PeriodoPrecedente (confermata iterativamente dallo schema validator INPS):
-           </Gestioni> → [CodiceCessazione] → [RetribTeoricaTabellareTFR] → [RetribValutabileTFR]
-           → [DataFineBeneficioCalamita] → [DescrMotivoUtilizzo] → [ConguaglioImponibile] → [EnteVersante*] */
-        if (p.CodiceCessazione) x += `                      <CodiceCessazione>${esc(p.CodiceCessazione)}</CodiceCessazione>\n`;
+    for (const p of periodi) {
+      if (p.tipoQuadro === "E0") {
+        /* ── E0_PeriodoNelMese: nessun attributo, nessun EnteVersante, nessun CodiceCessazione ── */
+        x += `                  <E0_PeriodoNelMese>\n`;
+        x += `                      <GiornoInizio>${esc(p.GiornoInizio)}</GiornoInizio>\n                      <GiornoFine>${esc(p.GiornoFine)}</GiornoFine>\n`;
+        x += emitInqGest(p);
+        /* RetribTeoricaTabellareTFR e RetribValutabileTFR: obbligatori per E0 con TFR (errori 00383I/00116I/00120I/00720I) */
         if (p.regimeTFS === "TFR" && p.ImpTFS) {
           x += `                      <RetribTeoricaTabellareTFR>${toIt(p.RetribTeoricaTabellareTFR)}</RetribTeoricaTabellareTFR>\n`;
           x += `                      <RetribValutabileTFR>${toIt(p.RetribValutabileTFR)}</RetribValutabileTFR>\n`;
         }
-        for (const ev of p.enteVersante) {
-          if (!ev.AnnoMeseErogazione) continue;
-          x += `                      <EnteVersante>\n                          <TipoContributo>${esc(ev.TipoContributo)}</TipoContributo>\n                          <CFAzienda>${esc(ev.CFAzienda)}</CFAzienda>\n                          <PRGAZIENDA>${esc(ev.PRGAZIENDA || "00000")}</PRGAZIENDA>\n                          <Imponibile>${toIt(ev.Imponibile)}</Imponibile>\n                          <Contributo>${toIt(ev.Contributo)}</Contributo>\n                          <AnnoMeseErogazione>${esc(ev.AnnoMeseErogazione)}</AnnoMeseErogazione>\n                          <Aliquota>${esc(ev.Aliquota || "2")}</Aliquota>\n                      </EnteVersante>\n`;
+        x += `                  </E0_PeriodoNelMese>\n`;
+      } else {
+        /* ── V1_PeriodoPrecedente ── */
+        const codMotivo = p.CodMotivoUtilizzo ? ` CodMotivoUtilizzo="${esc(p.CodMotivoUtilizzo)}"` : "";
+        x += `                  <V1_PeriodoPrecedente CausaleVariazione="${esc(p.CausaleVariazione)}"${codMotivo}>\n`;
+        x += `                      <GiornoInizio>${esc(p.GiornoInizio)}</GiornoInizio>\n                      <GiornoFine>${esc(p.GiornoFine)}</GiornoFine>\n`;
+        if (p.CausaleVariazione === "6") {
+          /* causale 6 = solo date (FIX 00126I) */
+        } else if (p.CausaleVariazione === "7") {
+          /* causale 7 = solo date + DescrMotivoUtilizzo */
+          if (p.dmuDataAtto) {
+            x += `                      <DescrMotivoUtilizzo>\n`;
+            x += `                          <DataAtto>${esc(p.dmuDataAtto)}</DataAtto>\n`;
+            if (p.dmuIdentAtto) x += `                          <IdentAtto>${esc(p.dmuIdentAtto)}</IdentAtto>\n`;
+            if (p.dmuNumeroRegistro) x += `                          <NumeroRegistro>${esc(p.dmuNumeroRegistro)}</NumeroRegistro>\n`;
+            x += `                      </DescrMotivoUtilizzo>\n`;
+          }
+        } else {
+          x += emitInqGest(p);
+          /* Sequenza XSD V1: </Gestioni> → [CodiceCessazione] → [RetribTeorica] → [RetribValutabile] → [EnteVersante*] */
+          if (p.CodiceCessazione) x += `                      <CodiceCessazione>${esc(p.CodiceCessazione)}</CodiceCessazione>\n`;
+          if (p.regimeTFS === "TFR" && p.ImpTFS) {
+            x += `                      <RetribTeoricaTabellareTFR>${toIt(p.RetribTeoricaTabellareTFR)}</RetribTeoricaTabellareTFR>\n`;
+            x += `                      <RetribValutabileTFR>${toIt(p.RetribValutabileTFR)}</RetribValutabileTFR>\n`;
+          }
+          for (const ev of p.enteVersante) {
+            if (!ev.AnnoMeseErogazione) continue;
+            x += `                      <EnteVersante>\n                          <TipoContributo>${esc(ev.TipoContributo)}</TipoContributo>\n                          <CFAzienda>${esc(ev.CFAzienda)}</CFAzienda>\n                          <PRGAZIENDA>${esc(ev.PRGAZIENDA || "00000")}</PRGAZIENDA>\n                          <Imponibile>${toIt(ev.Imponibile)}</Imponibile>\n                          <Contributo>${toIt(ev.Contributo)}</Contributo>\n                          <AnnoMeseErogazione>${esc(ev.AnnoMeseErogazione)}</AnnoMeseErogazione>\n                          <Aliquota>${esc(ev.Aliquota || "2")}</Aliquota>\n                      </EnteVersante>\n`;
+          }
         }
+        x += `                  </V1_PeriodoPrecedente>\n`;
       }
-      /* ── fine blocco causale ≠ 6 ── */
-
-      x += `                  </V1_PeriodoPrecedente>\n`;
     }
     x += `              </D0_DenunciaIndividuale>\n`;
   }
@@ -347,6 +398,15 @@ function validateAll(dips) {
     for (const p of d.periodi) {
       const who = `${d.Cognome} ${d.Nome}`;
       const period = `${p.GiornoInizio} → ${p.GiornoFine}`;
+      /* ── Congruità imponibili CPDEL vs Credito (tutti i periodi, E0 e V1) ── */
+      if (p.ImpCPDEL && p.ImpCredito) {
+        const diffCC = round2(parseIt(p.ImpCPDEL) - parseIt(p.ImpCredito));
+        if (Math.abs(diffCC) > 0.005)
+          warns.push({ code:"CPDEL≠Cred", who, period, val:toIt(p.ImpCPDEL), limit:toIt(p.ImpCredito), excess:toIt(String(diffCC)), field:`Imp. CPDEL ≠ Imp. Credito — ${diffCC>0?"CPDEL eccede Credito":"Credito eccede CPDEL"}` });
+      }
+      /* controlli EV: solo V1 con almeno una riga EV valorizzata */
+      if (p.tipoQuadro === "E0") continue;
+      if (!p.enteVersante.some(e => e.AnnoMeseErogazione)) continue;
       /* ── CPDEL imponibile (00171I bidirezionale) ── */
       if (p.ImpCPDEL) {
         const sumImpTC1 = round2(p.enteVersante.filter(e=>e.TipoContributo==="1").reduce((s,e)=>s+parseIt(e.Imponibile),0));
@@ -498,7 +558,7 @@ function generatePDF(m, a, dips) {
       html += `<div class="warn">⚠ <strong>${esc(w.code)}</strong> — ${esc(w.who)} — ${esc(w.period)}<br>${esc(w.field)}: Somma EV = <strong>${esc(w.val)}</strong> | Limite = <strong>${esc(w.limit)}</strong> | Eccesso = <strong>${esc(w.excess)}</strong></div>`;
     }
   }
-  html += `<div style="margin-top:20px;font-size:8px;color:#999;border-top:1px solid #ddd;padding-top:6px">UniEmens Variazione Builder v6 — ${now}</div>`;
+  html += `<div style="margin-top:20px;font-size:8px;color:#999;border-top:1px solid #ddd;padding-top:6px">UniEmens Variazione Builder v6.7 — ${now}</div>`;
   html += `</body></html>`;
 
   const w = window.open("", "_blank");
@@ -624,8 +684,10 @@ export default function UniEmensBuilder() {
   const [xDip, setXDip] = useState(null);
   const [xPer, setXPer] = useState(null);
   const [xml, setXml] = useState("");
+  const [xmlMode, setXmlMode] = useState(null);
   const [dupCount, setDupCount] = useState(null);
   const [warns, setWarns] = useState([]);
+  const [skippedE0, setSkippedE0] = useState(0);
   const [showReset, setShowReset] = useState(false);
   const [importModal, setImportModal] = useState(null);
   const [cumuloModal, setCumuloModal] = useState(null);
@@ -637,7 +699,7 @@ export default function UniEmensBuilder() {
   /* ── RESET ── */
   const doReset = () => {
     setM(EMPTY_M); setA(EMPTY_A); setDips([]);
-    setXDip(null); setXPer(null); setXml(""); setDupCount(null); setWarns([]);
+    setXDip(null); setXPer(null); setXml(""); setDupCount(null); setWarns([]); setSkippedE0(0);
     setShowReset(false); setTab(0);
   };
 
@@ -663,7 +725,7 @@ export default function UniEmensBuilder() {
       setM(importModal.mittente);
       setA(importModal.azienda);
       setDips(chosen);
-      setXml(""); setDupCount(null); setWarns([]);
+      setXml(""); setDupCount(null); setWarns([]); setSkippedE0(0);
       setXDip(chosen.length > 0 ? chosen[0].id : null);
       setXPer(null);
       setTab(1);
@@ -714,13 +776,13 @@ export default function UniEmensBuilder() {
     });
     const totImpTFS = hasTFS ? sumOf("tc7Imp") : "";
     const totContTFS = hasTFS ? sumOf("tc7Cont") : "";
-    /* RetribTeoricaTabellareTFR = ImpTFS × 1,25; RetribValutabileTFR = ImpTFS × 1,25 + UlterioriElem */
+    /* RetribValutabileTFR = ImpTFS × 1,25 + UlterioriElem
+       RetribTeoricaTabellareTFR: valore tabellare HR — preso dall'input inq, non calcolato */
     const isTFR = (inq.regimeTFS||"TFS")==="TFR";
-    const base125 = isTFR ? toIt(String(round2(parseIt(totImpTFS||"0")*1.25))) : "";
     const ultImpInq = parseIt(inq.ImponibileTFRUlterioriElem||"0");
-    const rvTFR = isTFR ? toIt(String(round2(parseIt(totImpTFS||"0")*1.25 + ultImpInq))) : "";
+    const rvTFR = isTFR ? toIt(String(round2(round2(parseIt(totImpTFS||"0")*1.25) + ultImpInq))) : "";
     const periodo={
-      id:uid(),CausaleVariazione:"5",GiornoInizio:inq.dateFrom,GiornoFine:inq.dateTo,
+      id:uid(),tipoQuadro:"V1",CausaleVariazione:"5",GiornoInizio:inq.dateFrom,GiornoFine:inq.dateTo,
       TipoImpiego:inq.TipoImpiego,TipoServizio:inq.TipoServizio,Contratto:inq.Contratto,Qualifica:inq.Qualifica,
       hasPartTime:inq.hasPartTime,TipoPartTime:inq.TipoPartTime,PercPartTime:inq.PercPartTime,
       RegimeFineServizio:inq.RegimeFineServizio,CodiceCessazione:inq.CodiceCessazione||"",
@@ -729,7 +791,7 @@ export default function UniEmensBuilder() {
       StipTabellare:inq.StipTabellare||"0,00",RetribAnzianita:inq.RetribAnzianita||"0,00",
       regimeTFS:inq.regimeTFS||"TFS",
       ImpTFS:totImpTFS,ContribTFS:totContTFS,
-      RetribTeoricaTabellareTFR:base125,
+      RetribTeoricaTabellareTFR:inq.RetribTeoricaTabellareTFR||"",
       ImponibileTFRUlterioriElem:inq.ImponibileTFRUlterioriElem||"",
       ContributoTFRUlterioriElem:inq.ContributoTFRUlterioriElem||"",
       RetribValutabileTFR:rvTFR,
@@ -741,28 +803,22 @@ export default function UniEmensBuilder() {
   };
 
   /* ── mkPer ── */
-  const mkPer = () => {
-    const tc1id=uid(), tc9id=uid(), tc7id=uid();
-    return {
-      id:uid(), CausaleVariazione:"5", GiornoInizio:"", GiornoFine:"",
-      TipoImpiego:"1", TipoServizio:"4", Contratto:"RALN", Qualifica:"",
-      hasPartTime:false, TipoPartTime:"P", PercPartTime:"", RegimeFineServizio:"3",
-      GiorniUtiliFiniPensionistici:"",
-      ImpCPDEL:"", ContribCPDEL:"", Contrib1Perc:"", StipTabellare:"0,00", RetribAnzianita:"0,00",
-      regimeTFS:"TFS", ImpTFS:"", ContribTFS:"",
-      RetribTeoricaTabellareTFR:"",
-      ImponibileTFRUlterioriElem:"",
-      ContributoTFRUlterioriElem:"",
-      RetribValutabileTFR:"",
-      ImpCredito:"", ContribCredito:"",
-      CodiceCessazione:"",
-      enteVersante:[
-        {id:tc1id, TipoContributo:"1", CFAzienda:a.CFAzienda, PRGAZIENDA:a.PRGAZIENDA||"00000", Imponibile:"", Contributo:"", AnnoMeseErogazione:"", Aliquota:"2", pairedTc9:tc9id},
-        {id:tc9id, TipoContributo:"9", CFAzienda:a.CFAzienda, PRGAZIENDA:a.PRGAZIENDA||"00000", Imponibile:"", Contributo:"", AnnoMeseErogazione:"", Aliquota:"2", pairedWith:tc1id},
-        {id:tc7id, TipoContributo:"7", CFAzienda:a.CFAzienda, PRGAZIENDA:a.PRGAZIENDA||"00000", Imponibile:"", Contributo:"", AnnoMeseErogazione:"", Aliquota:"2"},
-      ],
-    };
-  };
+  const mkPer = () => ({
+    id:uid(), tipoQuadro:"V1", CausaleVariazione:"5", CodMotivoUtilizzo:"", GiornoInizio:"", GiornoFine:"",
+    TipoImpiego:"1", TipoServizio:"4", Contratto:"RALN", Qualifica:"",
+    hasPartTime:false, TipoPartTime:"P", PercPartTime:"", RegimeFineServizio:"3",
+    GiorniUtiliFiniPensionistici:"",
+    ImpCPDEL:"", ContribCPDEL:"", Contrib1Perc:"", StipTabellare:"0,00", RetribAnzianita:"0,00",
+    regimeTFS:"TFS", ImpTFS:"", ContribTFS:"",
+    RetribTeoricaTabellareTFR:"",
+    ImponibileTFRUlterioriElem:"",
+    ContributoTFRUlterioriElem:"",
+    RetribValutabileTFR:"",
+    ImpCredito:"", ContribCredito:"",
+    CodiceCessazione:"",
+    dmuDataAtto:"", dmuIdentAtto:"", dmuNumeroRegistro:"",
+    enteVersante:[],
+  });
 
   /* ── Dipendenti CRUD ── */
   const addDip=()=>{ const d={id:uid(),CFLavoratore:"",Cognome:"",Nome:"",CodiceComune:"",CAP:"",periodi:[]}; setDips(p=>[...p,d]); setXDip(d.id); setXPer(null); };
@@ -792,22 +848,18 @@ export default function UniEmensBuilder() {
       if(isTFRMode){
         const imp=p.ImpTFS||"0";
         const ult=p.ImponibileTFRUlterioriElem||"";
-        const base=round2(parseIt(imp)*1.25);
-        u.RetribTeoricaTabellareTFR=toIt(String(base));
-        u.RetribValutabileTFR=toIt(String(round2(base+parseIt(ult||"0"))));
+        u.RetribValutabileTFR=toIt(String(round2(round2(parseIt(imp)*1.25)+parseIt(ult||"0"))));
       }
     }
     /* TFR auto-calc:
-       RetribTeoricaTabellareTFR = ImponibileTFR × 1,25  (porzione tabellare)
-       RetribValutabileTFR       = ImponibileTFR × 1,25 + ImponibileTFRUlterioriElem
+       RetribValutabileTFR = ImponibileTFR × 1,25 + ImponibileTFRUlterioriElem
+       RetribTeoricaTabellareTFR è un valore tabellare HR — NON si calcola, si inserisce manualmente.
        (rif. circ. 105/2012, msg. 2440/2019) */
     const isTFR=(k==="regimeTFS"?v:p.regimeTFS)==="TFR";
     if(isTFR&&(k==="ImpTFS"||k==="ImponibileTFRUlterioriElem"||k==="regimeTFS")){
       const imp = k==="ImpTFS"?v:(p.ImpTFS||"0");
       const ult = k==="ImponibileTFRUlterioriElem"?v:(p.ImponibileTFRUlterioriElem||"");
-      const base = round2(parseIt(imp)*1.25);
-      u.RetribTeoricaTabellareTFR = toIt(String(base));
-      u.RetribValutabileTFR       = toIt(String(round2(base + parseIt(ult||"0"))));
+      u.RetribValutabileTFR = toIt(String(round2(round2(parseIt(imp)*1.25) + parseIt(ult||"0"))));
     }
     return{...p,...u};
   })}:d));
@@ -892,16 +944,21 @@ export default function UniEmensBuilder() {
   const removeEV=(dipId,perId,evId)=>setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:d.periodi.map(p=>p.id===perId?{...p,enteVersante:p.enteVersante.filter(ev=>ev.id!==evId)}:p)}:d));
 
   /* ── Genera ── */
-  const genera=()=>{
+  const genera=(mode)=>{
     const{dips:dd,count}=deduplicateEV(dips);
-    setDupCount(count); setWarns(validateAll(dd)); setXml(buildXML(m,a,dd));
+    const nE0=dd.reduce((s,d)=>s+d.periodi.filter(p=>p.tipoQuadro==="E0").length,0);
+    const nV1=dd.reduce((s,d)=>s+d.periodi.filter(p=>p.tipoQuadro!=="E0").length,0);
+    setSkippedE0(mode==="variazione"?nE0:0);
+    setDupCount(count); setWarns(validateAll(dd));
+    setXml(buildXML(m,a,dd,mode)); setXmlMode(mode);
   };
   const scarica=()=>{
     if(!xml)return;
     const yymm=a.AnnoMeseDenuncia.replace("-","").slice(2)||"XXXX";
+    const prefix=xmlMode==="classico"?"UNIEN":"UNIEV";
     const blob=new Blob([xml],{type:"application/xml;charset=utf-8"});
     const url=URL.createObjectURL(blob);
-    const l=document.createElement("a"); l.href=url; l.download=`UNIEV${yymm}.xml`; l.click(); URL.revokeObjectURL(url);
+    const l=document.createElement("a"); l.href=url; l.download=`${prefix}${yymm}.xml`; l.click(); URL.revokeObjectURL(url);
   };
 
   const totPer=dips.reduce((s,d)=>s+d.periodi.length,0);
@@ -919,6 +976,8 @@ export default function UniEmensBuilder() {
     sumContribTC9:round2(p.enteVersante.filter(e=>e.TipoContributo==="9").reduce((s,e)=>s+parseIt(e.Contributo),0)),
   });
   const hasWarn=(p)=>{
+    if(p.tipoQuadro==="E0")return false;
+    if(!p.enteVersante.some(e=>e.AnnoMeseErogazione))return false;
     if(!p.ImpCPDEL&&!p.ImpTFS&&!p.ImpCredito)return false;
     const{sumImpTC1,sumImpTC9,sumContribTC1,sumImpTC7,sumImpTC8,sumContribTC7,sumContribTC8,sumContribTC9}=evSums(p);
     const lc=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
@@ -989,19 +1048,44 @@ export default function UniEmensBuilder() {
       );
     }
 
+    const isE0 = p.tipoQuadro === "E0";
+    const isC7 = p.CausaleVariazione === "7";
     return(
     <div style={C.cBody}>
       <div style={C.sub}>
-        <div style={C.subT}>Periodo e Causale</div>
+        <div style={C.subT}>Tipo quadro e Periodo</div>
         <div style={C.row}>
-          <F label="Causale variazione" value={p.CausaleVariazione} onChange={v=>updPer(dip.id,p.id,"CausaleVariazione",v)} opts={CAUSALE} w="230px"/>
+          <F label="Tipo quadro" value={p.tipoQuadro||"V1"} onChange={v=>updPer(dip.id,p.id,"tipoQuadro",v)}
+            opts={[{v:"E0",l:"E0 – Periodo nel mese"},{v:"V1",l:"V1 – Periodo precedente"}]} w="240px"/>
           <F label="Giorno inizio" value={p.GiornoInizio} onChange={v=>updPer(dip.id,p.id,"GiornoInizio",v)} ph="YYYY-MM-DD" w="130px"/>
           <F label="Giorno fine" value={p.GiornoFine} onChange={v=>updPer(dip.id,p.id,"GiornoFine",v)} ph="YYYY-MM-DD" w="130px"/>
-          <F label="Cod. cessazione" value={p.CodiceCessazione} onChange={v=>updPer(dip.id,p.id,"CodiceCessazione",v)} ph="es. 3" w="108px"/>
+          {!isE0&&<F label="Causale variazione" value={p.CausaleVariazione} onChange={v=>updPer(dip.id,p.id,"CausaleVariazione",v)} opts={CAUSALE} w="230px"/>}
+          {!isE0&&!isC7&&<F label="Cod. cessazione" value={p.CodiceCessazione} onChange={v=>updPer(dip.id,p.id,"CodiceCessazione",v)} ph="es. 3" w="108px"/>}
         </div>
+        {isE0&&(
+          <div style={{background:"#EFF6FF",border:"1px solid #93C5FD",borderRadius:"5px",padding:"7px 12px",marginTop:"4px",fontSize:"11px",color:"#1E40AF",fontWeight:"600"}}>
+            E0: denuncia corrente — nessun EnteVersante · TipoListaPosPA="0" · output UNIEN{"{yymm}"}.xml
+          </div>
+        )}
       </div>
 
-      <div style={C.sub}>
+      {/* ── Causale 7: banner + campi DescrMotivoUtilizzo ── */}
+      {isC7&&(
+        <div style={C.sub}>
+          <div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:"5px",padding:"8px 12px",marginBottom:"8px",fontSize:"11px",color:"#92400E",fontWeight:"600"}}>
+            Causale 7 — Conguaglio previdenziale: l'XML conterrà solo date + DescrMotivoUtilizzo. InquadramentoLavPA, Gestioni ed EnteVersante non vengono emessi.
+          </div>
+          <div style={C.subT}>DescrMotivoUtilizzo</div>
+          <div style={C.row}>
+            <F label="Data atto" value={p.dmuDataAtto||""} onChange={v=>updPer(dip.id,p.id,"dmuDataAtto",v)} ph="YYYY-MM-DD" w="148px"/>
+            <F label="Ident. atto" value={p.dmuIdentAtto||""} onChange={v=>updPer(dip.id,p.id,"dmuIdentAtto",v)} ph="es. 4" w="96px"/>
+            <F label="Numero registro" value={p.dmuNumeroRegistro||""} onChange={v=>updPer(dip.id,p.id,"dmuNumeroRegistro",v)} ph="es. NRE..." w="196px"/>
+            <F label="CodMotivoUtilizzo" value={p.CodMotivoUtilizzo||""} onChange={v=>updPer(dip.id,p.id,"CodMotivoUtilizzo",v)} ph="es. 5" w="96px"/>
+          </div>
+        </div>
+      )}
+
+      {!isC7&&<><div style={C.sub}>
         <div style={C.subT}>InquadramentoLavPA</div>
         <div style={C.row}>
           <F label="Tipo impiego" value={p.TipoImpiego} onChange={v=>updPer(dip.id,p.id,"TipoImpiego",v)} opts={TIPO_IMPIEGO} w="340px"/>
@@ -1038,8 +1122,9 @@ export default function UniEmensBuilder() {
           <F label="Stipendio tabellare" value={p.StipTabellare} onChange={v=>updPer(dip.id,p.id,"StipTabellare",v)} ph="0,00" w="136px"/>
           <F label="Retrib. anzianità" value={p.RetribAnzianita} onChange={v=>updPer(dip.id,p.id,"RetribAnzianita",v)} ph="0,00" w="126px"/>
         </div>
-      </div>
-
+      </div></>}
+      {/* ── Gestioni + EV: nascosti per causale 7 ── */}
+      {!isC7&&<>
       {/* ── GestPrevidenziale: TFS standard o TFR con campi aggiuntivi ── */}
       <div style={C.sub}>
         <div style={C.subT}>GestPrevidenziale — TFS / TFR (CodGestione 6)</div>
@@ -1091,8 +1176,8 @@ export default function UniEmensBuilder() {
         </div>
       </div>
 
-      {/* EnteVersante */}
-      <div style={C.sub}>
+      {/* EnteVersante — solo V1 */}
+      {!isE0&&<div style={C.sub}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"7px"}}>
           <div style={C.subT}>Lista Contributi — Ente Versante ({p.enteVersante.length} righe)</div>
           <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
@@ -1239,7 +1324,8 @@ export default function UniEmensBuilder() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
+      </>}
     </div>
   );};
 
@@ -1257,9 +1343,9 @@ export default function UniEmensBuilder() {
         </div>
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"7px"}}>
-        <span style={{...C.subT,marginBottom:0}}>V1 — {dip.periodi.length} periodo{dip.periodi.length!==1?"i":""}</span>
+        <span style={{...C.subT,marginBottom:0}}>Periodi — {dip.periodi.length} periodo{dip.periodi.length!==1?"i":""}</span>
         <div style={{display:"flex",gap:"6px"}}>
-          <button style={C.btn("p")} onClick={()=>addPer(dip.id)}>+ Aggiungi periodo V1</button>
+          <button style={C.btn("p")} onClick={()=>addPer(dip.id)}>+ Aggiungi periodo</button>
           <button style={{...C.btn("cum"),padding:"4px 11px"}} onClick={()=>openCumulo(dip.id)}>∑ Cumulo mensilità</button>
         </div>
       </div>
@@ -1268,11 +1354,14 @@ export default function UniEmensBuilder() {
         <div key={p.id} style={C.card}>
           <div style={C.cHdr} onClick={()=>setXPer(xPer===p.id?null:p.id)}>
             <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-              <span style={C.bdg(p.CausaleVariazione==="6"?"#D97706":"#00AEEF")}>caus.{p.CausaleVariazione}</span>
+              {(p.tipoQuadro||"V1")==="E0"
+                ?<span style={{...C.bdg("#0369A1"),fontSize:"9px"}}>E0</span>
+                :<span style={C.bdg(p.CausaleVariazione==="6"?"#D97706":"#00AEEF")}>caus.{p.CausaleVariazione}</span>}
               <span style={{...C.mono,color:"#4A6E8C"}}>{p.GiornoInizio||"???"} → {p.GiornoFine||"???"}</span>
-              {p.CausaleVariazione!=="6"&&<span style={{...C.bdg("#059669"),fontSize:"9px"}}>{p.enteVersante.length} EV</span>}
+              {(p.tipoQuadro||"V1")!=="E0"&&p.CausaleVariazione!=="6"&&<span style={{...C.bdg("#059669"),fontSize:"9px"}}>{p.enteVersante.length} EV</span>}
+              {(p.tipoQuadro||"V1")==="E0"&&<span style={{...C.bdg("#0369A1"),fontSize:"9px"}}>corrente</span>}
               {p.CodiceCessazione&&<span style={{...C.bdg("#D97706"),fontSize:"9px"}}>cess.{p.CodiceCessazione}</span>}
-              {p.CausaleVariazione==="6"&&<span style={{...C.bdg("#D97706"),fontSize:"9px"}}>ANNULLAMENTO</span>}
+              {p.CausaleVariazione==="6"&&(p.tipoQuadro||"V1")!=="E0"&&<span style={{...C.bdg("#D97706"),fontSize:"9px"}}>ANNULLAMENTO</span>}
               {hasWarn(p)&&<span style={{...C.bdg("#EF4444"),fontSize:"9px"}}>⚠ CONGRUITÀ</span>}
             </div>
             <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
@@ -1641,8 +1730,8 @@ export default function UniEmensBuilder() {
 
       <div style={C.hdr}>
         <div>
-          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.6</div>
-          <div style={C.hdrS}>TipoImpiego DMA2 completo (19 codici) · TipoPartTime auto da codice 8/18 · GiorniUtiliFiniPensionistici per Giornaliero (cod.2)</div>
+          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.7</div>
+          <div style={C.hdrS}>Flusso misto E0+V1 · TipoListaPosPA auto · TipoImpiego DMA2 completo (19 codici) · TipoPartTime auto da codice 8/18</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
           <span style={{fontSize:"11px",color:"#94A3B8",fontVariantNumeric:"tabular-nums"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
@@ -1703,7 +1792,7 @@ export default function UniEmensBuilder() {
                 <div style={{display:"flex",gap:"10px",alignItems:"center"}}>
                   <span style={{...C.mono,color:"#0369A1",fontWeight:"700",fontSize:"12px"}}>{dip.CFLavoratore||"— CF —"}</span>
                   <span style={{color:"#4A6E8C"}}>{dip.Cognome||"Cognome"} {dip.Nome||"Nome"}</span>
-                  <span style={{...C.bdg("#059669"),fontSize:"9px"}}>{dip.periodi.length} V1</span>
+                  <span style={{...C.bdg("#059669"),fontSize:"9px"}}>{dip.periodi.filter(p=>(p.tipoQuadro||"V1")==="V1").length} V1{dip.periodi.some(p=>p.tipoQuadro==="E0")&&` · ${dip.periodi.filter(p=>p.tipoQuadro==="E0").length} E0`}</span>
                   {dip.periodi.some(p=>hasWarn(p))&&<span style={{...C.bdg("#EF4444"),fontSize:"9px"}}>⚠ CONGRUITÀ</span>}
                 </div>
                 <div style={{display:"flex",gap:"6px"}}>
@@ -1717,15 +1806,38 @@ export default function UniEmensBuilder() {
         </>}
 
         {tab===2&&<>
-          <div style={{display:"flex",gap:"10px",marginBottom:"13px",alignItems:"center",flexWrap:"wrap"}}>
-            <button style={{...C.btn("s"),padding:"7px 20px",fontSize:"13px"}} onClick={genera}>⚡ Genera XML</button>
-            {xml&&<button style={{...C.btn("p"),padding:"7px 20px",fontSize:"13px"}} onClick={scarica}>⬇ Scarica XML</button>}
-            {xml&&<span style={{fontSize:"11px",color:"#065F46",fontVariantNumeric:"tabular-nums"}}>✓ {xml.length.toLocaleString("it")} car. · {totPer} D0 in 1 PosPA{a.AnnoMeseDenuncia&&<> · UNIEV{a.AnnoMeseDenuncia.replace("-","").slice(2)}.xml</>}</span>}
+          <div style={{background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:"7px",padding:"11px 14px",marginBottom:"12px"}}>
+            <div style={{fontSize:"11px",fontWeight:"700",color:"#0369A1",marginBottom:"8px"}}>Scegli il tipo di flusso da generare:</div>
+            <div style={{display:"flex",gap:"10px",flexWrap:"wrap",alignItems:"center"}}>
+              <button style={{...C.btn("p"),padding:"8px 18px",fontSize:"13px",fontWeight:"700"}} onClick={()=>genera("classico")}>
+                ⚡ UNIM — Flusso classico
+              </button>
+              <button style={{...C.btn("s"),padding:"8px 18px",fontSize:"13px",fontWeight:"700"}} onClick={()=>genera("variazione")}>
+                ⚡ UNIEV — Solo variazione
+              </button>
+              <div style={{fontSize:"10px",color:"#64748B",lineHeight:"1.4"}}>
+                <strong>UNIM classico</strong>: TipoListaPosPA="0" · E0+V1 · UNIEN…xml<br/>
+                <strong>UNIEV variazione</strong>: TipoListaPosPA="1" · solo V1 · UNIEV…xml
+              </div>
+            </div>
           </div>
+          {xml&&(
+            <div style={{display:"flex",gap:"10px",marginBottom:"10px",alignItems:"center",flexWrap:"wrap"}}>
+              <button style={{...C.btn("p"),padding:"7px 20px",fontSize:"13px"}} onClick={scarica}>⬇ Scarica XML</button>
+              <span style={{fontSize:"11px",color:"#065F46",fontVariantNumeric:"tabular-nums"}}>
+                ✓ {xml.length.toLocaleString("it")} car.
+                {xmlMode==="classico"
+                  ? <> · {totPer} periodi (E0+V1) · TipoListaPosPA="0"{a.AnnoMeseDenuncia&&<> · UNIEN{a.AnnoMeseDenuncia.replace("-","").slice(2)}.xml</>}</>
+                  : <> · {totPer-skippedE0} V1 · TipoListaPosPA="1"{a.AnnoMeseDenuncia&&<> · UNIEV{a.AnnoMeseDenuncia.replace("-","").slice(2)}.xml</>}</>
+                }
+              </span>
+            </div>
+          )}
           {dupCount!==null&&(dupCount>0
             ?<div style={C.alert("w")}>⚠ Dedup: {dupCount} riga{dupCount>1?"he":""} EnteVersante duplicate rimosse.</div>
             :<div style={C.alert("o")}>✓ Dedup: nessuna riga duplicata.</div>
           )}
+          {skippedE0>0&&<div style={C.alert("w")}>ℹ {skippedE0} periodo{skippedE0>1?"i":""} E0 esclus{skippedE0>1?"i":"o"} dall'XML variazione (TipoListaPosPA="1"). Usa "UNIM classico" per includerli.</div>}
           {warns.map((w,i)=>(
             <div key={i} style={C.alert("e")}>
               ⚠ <strong>{w.code}</strong> · {w.who} · {w.period}<br/>
@@ -1733,7 +1845,7 @@ export default function UniEmensBuilder() {
             </div>
           ))}
           {warns.length===0&&dupCount!==null&&<div style={C.alert("o")}>✓ Nessuna violazione di congruità rilevata.</div>}
-          {!xml&&<div style={C.empty}>Clicca "Genera XML" per produrre il flusso UniEmens variazione.</div>}
+          {!xml&&<div style={C.empty}>Scegli il tipo di flusso e clicca il pulsante corrispondente.</div>}
           {xml&&<textarea style={{width:"100%",height:"480px",background:"#040B14",border:"1px solid #E5E7EB",borderRadius:"6px",color:"#166534",fontFamily:"'Courier New',monospace",fontSize:"11px",padding:"11px",boxSizing:"border-box",outline:"none",resize:"vertical",lineHeight:"1.55"}} value={xml} readOnly/>}
         </>}
       </div>
