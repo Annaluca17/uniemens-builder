@@ -2,8 +2,15 @@ import { useState, useRef } from "react";
 
 /* ═══ UTILITIES ═══ */
 const uid = () => Math.random().toString(36).slice(2, 9);
-const toIt = (v) => { const n = parseFloat(String(v || "0").replace(",", ".")); return isNaN(n) ? "0,00" : n.toFixed(2).replace(".", ","); };
-const parseIt = (v) => { const n = parseFloat(String(v || "0").replace(",", ".")); return isNaN(n) ? 0 : n; };
+const parseIt = (v) => {
+  let s = String(v ?? "").trim().replace(/\s+/g, "");
+  if (!s) return 0;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+};
+const toIt = (v) => (typeof v === "number" ? v : parseIt(v)).toFixed(2).replace(".", ",");
 const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const round2 = (v) => Math.round(v * 100) / 100;
 
@@ -414,10 +421,10 @@ function validateAll(dips) {
         const diff171 = round2(sumImpTC1 - impCPDEL);
         if (Math.abs(diff171) > 0.005) warns.push({ code:"00171I", who, period, val:toIt(String(sumImpTC1)), limit:toIt(String(impCPDEL)), excess:toIt(String(diff171)), field:`Σ Imp. TC1 vs GestPensionistica — ${diff171>0?"ECCESSO":"RESIDUO"}` });
         /* ── CPDEL contributo (00172I bidirezionale) ── */
-        const sumContribTC1 = round2(p.enteVersante.filter(e=>e.TipoContributo==="1"||e.TipoContributo==="5").reduce((s,e)=>s+parseIt(e.Contributo),0));
-        const limitContrib = round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
+        const sumContribTC1 = round2(p.enteVersante.filter(e=>["1","5","6"].includes(e.TipoContributo)).reduce((s,e)=>s+parseIt(e.Contributo),0));
+        const limitContrib = round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc)+parseIt(p.ContribSolidarieta||"0"));
         const diff172 = round2(sumContribTC1 - limitContrib);
-        if (Math.abs(diff172) > 0.005) warns.push({ code:"00172I", who, period, val:toIt(String(sumContribTC1)), limit:toIt(String(limitContrib)), excess:toIt(String(diff172)), field:`Σ Contrib. TC1+TC5 vs CPDEL+1% — ${diff172>0?"ECCESSO":"RESIDUO"}` });
+        if (Math.abs(diff172) > 0.005) warns.push({ code:"00172I", who, period, val:toIt(String(sumContribTC1)), limit:toIt(String(limitContrib)), excess:toIt(String(diff172)), field:`Σ Contrib. TC1+TC5+TC6 vs CPDEL+1%+Sol. — ${diff172>0?"ECCESSO":"RESIDUO"}` });
       }
       /* ── Credito imponibile (00032I bidirezionale) ── */
       if (p.ImpCredito) {
@@ -468,7 +475,7 @@ function validateAll(dips) {
    PDF GENERATOR — apre finestra di stampa formattata
 ════════════════════════════════════════════════════════════ */
 function generatePDF(m, a, dips) {
-  const TC_LABEL = { "1": "CPDEL", "2": "C.Ins.", "3": "C.San.", "5": "Agg.spec.", "6": "Agg.1%", "7": "TFS/INADEL", "8": "TFR (EnteVers.)", "9": "Fondo Cred." };
+  const TC_LABEL = { "1": "CPDEL", "2": "C.Ins.", "3": "C.San.", "5": "Agg.spec.", "6": "Agg.1%/Sol.", "7": "TFS/INADEL", "8": "TFR (EnteVers.)", "9": "Fondo Cred." };
   const now = new Date().toLocaleString("it-IT");
 
   let html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>UniEmens Variazione — ${a.CFAzienda}</title>
@@ -509,13 +516,14 @@ function generatePDF(m, a, dips) {
     for (const p of d.periodi) {
       const sumImpTC1 = round2(p.enteVersante.filter(e=>e.TipoContributo==="1").reduce((s,e)=>s+parseIt(e.Imponibile),0));
       const sumImpTC9 = round2(p.enteVersante.filter(e=>e.TipoContributo==="9").reduce((s,e)=>s+parseIt(e.Imponibile),0));
-      const sumContribTC1 = round2(p.enteVersante.filter(e=>e.TipoContributo==="1"||e.TipoContributo==="5").reduce((s,e)=>s+parseIt(e.Contributo),0));
-      const limitContrib = round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
+      const sumContribTC1 = round2(p.enteVersante.filter(e=>["1","5","6"].includes(e.TipoContributo)).reduce((s,e)=>s+parseIt(e.Contributo),0));
+      const limitContrib = round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc)+parseIt(p.ContribSolidarieta||"0"));
       const impOk1 = !p.ImpCPDEL || sumImpTC1 <= parseIt(p.ImpCPDEL)+0.005;
       const impOk9 = !p.ImpCredito || sumImpTC9 <= parseIt(p.ImpCredito)+0.005;
       const cOk = !p.ImpCPDEL || sumContribTC1 <= limitContrib+0.005;
 
-      html += `<div style="margin:6px 0 4px;font-size:9px"><strong>V1 causale ${esc(p.CausaleVariazione)}</strong> &nbsp; ${esc(p.GiornoInizio)} \u2192 ${esc(p.GiornoFine)}${p.CodiceCessazione ? ` &nbsp; Cessazione: ${esc(p.CodiceCessazione)}` : ""}${p.CausaleVariazione==="6"?" — ANNULLAMENTO (solo date in XML)":""}</div>`;
+      const isE0 = (p.tipoQuadro || "V1") === "E0";
+      html += `<div style="margin:6px 0 4px;font-size:9px"><strong>${isE0 ? "E0 — Periodo nel mese" : `V1 causale ${esc(p.CausaleVariazione)}`}</strong> &nbsp; ${esc(p.GiornoInizio)} \u2192 ${esc(p.GiornoFine)}${!isE0 && p.CodiceCessazione ? ` &nbsp; Cessazione: ${esc(p.CodiceCessazione)}` : ""}${!isE0 && p.CausaleVariazione==="6"?" — ANNULLAMENTO (solo date in XML)":""}</div>`;
 
       if (p.CausaleVariazione !== "6") {
         html += `<table><tr><th>TipoImpiego</th><th>TipoServizio</th><th>Contratto</th><th>Qualifica</th><th>Regime FS</th>${p.hasPartTime?`<th>Part-time</th><th>%PT</th>`:""}</tr>`;
@@ -534,6 +542,7 @@ function generatePDF(m, a, dips) {
         if (p.ImpCredito) html += `<tr><td>Fondo Credito (cod.9)</td><td class="num">${toIt(p.ImpCredito)}</td><td class="num">${toIt(p.ContribCredito)}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`;
         html += `</table>`;
 
+        if (!isE0) {
         html += `<table><tr><th>TC</th><th>CF Azienda</th><th>PRGAZIENDA</th><th class="num">Imponibile</th><th class="num">Contributo</th><th>AnnoMese Erog.</th><th>Aliq.</th></tr>`;
         for (const ev of p.enteVersante) {
           html += `<tr><td>${esc(ev.TipoContributo)} – ${TC_LABEL[ev.TipoContributo]||""}</td><td>${esc(ev.CFAzienda)}</td><td>${esc(ev.PRGAZIENDA)}</td><td class="num">${toIt(ev.Imponibile)}</td><td class="num">${toIt(ev.Contributo)}</td><td>${esc(ev.AnnoMeseErogazione)}</td><td>${esc(ev.Aliquota)}</td></tr>`;
@@ -541,9 +550,10 @@ function generatePDF(m, a, dips) {
         if (p.ImpCPDEL) {
           html += `<tr class="sum-row ${!impOk1?'over':''}"><td colspan="3"><strong>Σ Imponibile TC1 EV</strong> ${!impOk1?'⚠ 00171I ECCESSO':''}</td><td class="num"><strong>${toIt(String(sumImpTC1))}</strong></td><td class="num"></td><td colspan="2">${p.ImpCPDEL?`GestPens.Imp: ${toIt(p.ImpCPDEL)}`:""}</td></tr>`;
           if (p.ImpCredito) html += `<tr class="sum-row ${!impOk9?'over':''}"><td colspan="3"><strong>Σ Imponibile TC9 EV</strong> ${!impOk9?'⚠ 00032I ECCESSO':''}</td><td class="num"><strong>${toIt(String(sumImpTC9))}</strong></td><td class="num"></td><td colspan="2">${p.ImpCredito?`GestCred.Imp: ${toIt(p.ImpCredito)}`:""}</td></tr>`;
-          html += `<tr class="sum-row ${!cOk?'over':''}"><td colspan="3"><strong>Σ Contributo TC1 EV</strong> ${!cOk?'⚠ 00172I ECCESSO':''}</td><td class="num"></td><td class="num"><strong>${toIt(String(sumContribTC1))}</strong></td><td colspan="2">${p.ContribCPDEL?`Limite CPDEL+1%: ${toIt(String(limitContrib))}`:""}</td></tr>`;
+          html += `<tr class="sum-row ${!cOk?'over':''}"><td colspan="3"><strong>Σ Contributo TC1 EV</strong> ${!cOk?'⚠ 00172I ECCESSO':''}</td><td class="num"></td><td class="num"><strong>${toIt(String(sumContribTC1))}</strong></td><td colspan="2">${p.ContribCPDEL?`Limite CPDEL+1%+Sol.: ${toIt(String(limitContrib))}`:""}</td></tr>`;
         }
         html += `</table>`;
+        }
       }
     }
     html += `</div>`;
@@ -558,10 +568,11 @@ function generatePDF(m, a, dips) {
       html += `<div class="warn">⚠ <strong>${esc(w.code)}</strong> — ${esc(w.who)} — ${esc(w.period)}<br>${esc(w.field)}: Somma EV = <strong>${esc(w.val)}</strong> | Limite = <strong>${esc(w.limit)}</strong> | Eccesso = <strong>${esc(w.excess)}</strong></div>`;
     }
   }
-  html += `<div style="margin-top:20px;font-size:8px;color:#999;border-top:1px solid #ddd;padding-top:6px">UniEmens Variazione Builder v6.7 — ${now}</div>`;
+  html += `<div style="margin-top:20px;font-size:8px;color:#999;border-top:1px solid #ddd;padding-top:6px">UniEmens Variazione Builder v6.8 — ${now}</div>`;
   html += `</body></html>`;
 
   const w = window.open("", "_blank");
+  if (!w) { alert("Finestra di stampa bloccata dal browser: consentire i popup per questo sito e riprovare."); return; }
   w.document.write(html);
   w.document.close();
   setTimeout(() => w.print(), 600);
@@ -658,7 +669,7 @@ const REGIME_FS=[{v:"1",l:"1 – TFR privatistico"},{v:"2",l:"2 – TFR misto"},
 /* DMA2 XSD: TipoPartTime = P (Orizzontale), V (Verticale), M (Misto) — NON 'O' (errore enum XSD) */
 const TIPO_PT=[{v:"P",l:"P – Orizzontale"},{v:"V",l:"V – Verticale"},{v:"M",l:"M – Misto"}];
 /* ── TC8 corretto: contributo TFR versato dall'ente ── */
-const TC_OPTS=[{v:"1",l:"1 – CPDEL"},{v:"2",l:"2 – C.Ins."},{v:"3",l:"3 – C.San."},{v:"5",l:"5 – Agg.spec."},{v:"6",l:"6 – Agg.1%"},{v:"7",l:"7 – TFS/INADEL"},{v:"8",l:"8 – TFR (EnteVers.)"},{v:"9",l:"9 – Fondo Cred."}];
+const TC_OPTS=[{v:"1",l:"1 – CPDEL"},{v:"2",l:"2 – C.Ins."},{v:"3",l:"3 – C.San."},{v:"5",l:"5 – Agg.spec."},{v:"6",l:"6 – Agg.1%/Sol."},{v:"7",l:"7 – TFS/INADEL"},{v:"8",l:"8 – TFR (EnteVers.)"},{v:"9",l:"9 – Fondo Cred."}];
 const FG_OPTS=[{v:"2410",l:"2410 – Regione"},{v:"2420",l:"2420 – Provincia"},{v:"2430",l:"2430 – Comune"},{v:"2440",l:"2440 – Comunità montana"},{v:"2450",l:"2450 – Unione comuni"},{v:"2460",l:"2460 – Città metropolitana"},{v:"2711",l:"2711 – Ente pub. ricerca"},{v:"2712",l:"2712 – IPAB"},{v:"2720",l:"2720 – Camera commercio"},{v:"2740",l:"2740 – Consorzio dir.pub."},{v:"2790",l:"2790 – Altro ente pub."}];
 
 const EMPTY_M = { CFPersonaMittente:"", RagSocMittente:"", CFMittente:"", CFSoftwarehouse:"00000000000", SedeINPS:"" };
@@ -784,10 +795,11 @@ export default function UniEmensBuilder() {
     const periodo={
       id:uid(),tipoQuadro:"V1",CausaleVariazione:"5",GiornoInizio:inq.dateFrom,GiornoFine:inq.dateTo,
       TipoImpiego:inq.TipoImpiego,TipoServizio:inq.TipoServizio,Contratto:inq.Contratto,Qualifica:inq.Qualifica,
-      hasPartTime:inq.hasPartTime,TipoPartTime:inq.TipoPartTime,PercPartTime:inq.PercPartTime,
+      hasPartTime:inq.TipoImpiego==="8"||inq.TipoImpiego==="18",TipoPartTime:inq.TipoPartTime,PercPartTime:inq.PercPartTime,
       RegimeFineServizio:inq.RegimeFineServizio,CodiceCessazione:inq.CodiceCessazione||"",
       ImpCPDEL:sumOf("tc1Imp"),ContribCPDEL:sumOf("tc1Cont"),
       Contrib1Perc:hasC1?sumOf("tc6Cont"):"",
+      ContribSolidarieta:hasSol?sumOf("tcSCont"):"",
       StipTabellare:inq.StipTabellare||"0,00",RetribAnzianita:inq.RetribAnzianita||"0,00",
       regimeTFS:inq.regimeTFS||"TFS",
       ImpTFS:totImpTFS,ContribTFS:totContTFS,
@@ -808,7 +820,7 @@ export default function UniEmensBuilder() {
     TipoImpiego:"1", TipoServizio:"4", Contratto:"RALN", Qualifica:"",
     hasPartTime:false, TipoPartTime:"P", PercPartTime:"", RegimeFineServizio:"3",
     GiorniUtiliFiniPensionistici:"",
-    ImpCPDEL:"", ContribCPDEL:"", Contrib1Perc:"", StipTabellare:"0,00", RetribAnzianita:"0,00",
+    ImpCPDEL:"", ContribCPDEL:"", Contrib1Perc:"", ContribSolidarieta:"", StipTabellare:"0,00", RetribAnzianita:"0,00",
     regimeTFS:"TFS", ImpTFS:"", ContribTFS:"",
     RetribTeoricaTabellareTFR:"",
     ImponibileTFRUlterioriElem:"",
@@ -934,6 +946,15 @@ export default function UniEmensBuilder() {
     if(d.id!==dipId)return d;
     return{...d,periodi:d.periodi.map(p=>{
       if(p.id!==perId)return p;
+      if(k==="TipoContributo"){
+        const oldRow=p.enteVersante.find(e=>e.id===evId);
+        const partnerId=oldRow?.pairedTc9||oldRow?.pairedWith;
+        return{...p,enteVersante:p.enteVersante.map(ev=>{
+          if(ev.id===evId){const{pairedTc9,pairedWith,...rest}=ev;return{...rest,TipoContributo:v};}
+          if(partnerId&&ev.id===partnerId){const{pairedTc9,pairedWith,...rest}=ev;return rest;}
+          return ev;
+        })};
+      }
       const upd=p.enteVersante.map(ev=>ev.id===evId?{...ev,[k]:v}:ev);
       const ch=upd.find(ev=>ev.id===evId);
       if(ch&&ch.TipoContributo==="1"&&ch.pairedTc9&&(k==="Imponibile"||k==="AnnoMeseErogazione"))
@@ -970,7 +991,7 @@ export default function UniEmensBuilder() {
     sumImpTC7:    round2(p.enteVersante.filter(e=>e.TipoContributo==="7").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
     sumImpTC8:    round2(p.enteVersante.filter(e=>e.TipoContributo==="8").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
     sumImpTC9:    round2(p.enteVersante.filter(e=>e.TipoContributo==="9").reduce((s,e)=>s+parseIt(e.Imponibile),0)),
-    sumContribTC1:round2(p.enteVersante.filter(e=>e.TipoContributo==="1"||e.TipoContributo==="5").reduce((s,e)=>s+parseIt(e.Contributo),0)),
+    sumContribTC1:round2(p.enteVersante.filter(e=>["1","5","6"].includes(e.TipoContributo)).reduce((s,e)=>s+parseIt(e.Contributo),0)),
     sumContribTC7:round2(p.enteVersante.filter(e=>e.TipoContributo==="7").reduce((s,e)=>s+parseIt(e.Contributo),0)),
     sumContribTC8:round2(p.enteVersante.filter(e=>e.TipoContributo==="8").reduce((s,e)=>s+parseIt(e.Contributo),0)),
     sumContribTC9:round2(p.enteVersante.filter(e=>e.TipoContributo==="9").reduce((s,e)=>s+parseIt(e.Contributo),0)),
@@ -980,7 +1001,7 @@ export default function UniEmensBuilder() {
     if(!p.enteVersante.some(e=>e.AnnoMeseErogazione))return false;
     if(!p.ImpCPDEL&&!p.ImpTFS&&!p.ImpCredito)return false;
     const{sumImpTC1,sumImpTC9,sumContribTC1,sumImpTC7,sumImpTC8,sumContribTC7,sumContribTC8,sumContribTC9}=evSums(p);
-    const lc=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
+    const lc=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc)+parseIt(p.ContribSolidarieta||"0"));
     if(p.ImpCPDEL&&(Math.abs(sumImpTC1-parseIt(p.ImpCPDEL))>0.005||Math.abs(sumContribTC1-lc)>0.005))return true;
     if(p.ImpCredito&&(Math.abs(sumImpTC9-parseIt(p.ImpCredito))>0.005||Math.abs(sumContribTC9-parseIt(p.ContribCredito))>0.005))return true;
     if(p.ImpTFS){
@@ -999,7 +1020,7 @@ export default function UniEmensBuilder() {
     const contribCred=parseIt(p.ContribCredito);
     const impTFS=parseIt(p.ImpTFS);
     const contribTFS=parseIt(p.ContribTFS);
-    const limitContrib=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc));
+    const limitContrib=round2(parseIt(p.ContribCPDEL)+parseIt(p.Contrib1Perc)+parseIt(p.ContribSolidarieta||"0"));
     const over171=p.ImpCPDEL&&sumImpTC1>impCPDEL+0.005;
     const under171=p.ImpCPDEL&&sumImpTC1<impCPDEL-0.005;
     const over032=p.ImpCredito&&sumImpTC9>impCred+0.005;
@@ -1119,6 +1140,7 @@ export default function UniEmensBuilder() {
           <F label="Imponibile CPDEL" value={p.ImpCPDEL} onChange={v=>updPer(dip.id,p.id,"ImpCPDEL",v)} ph="0,00" w="136px"/>
           <F label="Contributo CPDEL" value={p.ContribCPDEL} onChange={v=>updPer(dip.id,p.id,"ContribCPDEL",v)} ph="0,00" w="136px"/>
           <F label="Contrib. 1%" value={p.Contrib1Perc} onChange={v=>updPer(dip.id,p.id,"Contrib1Perc",v)} ph="0,00" w="96px"/>
+          <F label="Contrib. solidarietà (solo congruità)" value={p.ContribSolidarieta||""} onChange={v=>updPer(dip.id,p.id,"ContribSolidarieta",v)} ph="0,00" w="146px"/>
           <F label="Stipendio tabellare" value={p.StipTabellare} onChange={v=>updPer(dip.id,p.id,"StipTabellare",v)} ph="0,00" w="136px"/>
           <F label="Retrib. anzianità" value={p.RetribAnzianita} onChange={v=>updPer(dip.id,p.id,"RetribAnzianita",v)} ph="0,00" w="126px"/>
         </div>
@@ -1144,11 +1166,11 @@ export default function UniEmensBuilder() {
           <>
             {/* RetribTeoricaTabellareTFR e RetribValutabileTFR — auto-calc da ImpTFS×1,25 */}
             <div style={C.row}>
-              <F label="Retrib. Teorica Tabellare TFR (auto)" value={p.RetribTeoricaTabellareTFR} onChange={v=>updPer(dip.id,p.id,"RetribTeoricaTabellareTFR",v)} ph="auto" w="228px" blue/>
+              <F label="Retrib. Teorica Tabellare TFR (manuale)" value={p.RetribTeoricaTabellareTFR} onChange={v=>updPer(dip.id,p.id,"RetribTeoricaTabellareTFR",v)} ph="dato tabellare HR" w="238px" red={parseIt(p.ImpTFS)>0&&parseIt(p.RetribTeoricaTabellareTFR||"0")===0}/>
               <F label="Retrib. Valutabile TFR (auto)" value={p.RetribValutabileTFR} onChange={v=>updPer(dip.id,p.id,"RetribValutabileTFR",v)} ph="auto" w="198px" blue/>
             </div>
             <div style={{fontSize:"9px",color:"#1E40AF",marginTop:"-4px",marginBottom:"6px",paddingLeft:"2px"}}>
-              Auto-calc: ImponibileTFR × 1,25 (campi blu editabili). Emessi a livello V1 (non in GestPrevidenziale).
+              Valutabile auto-calc: ImponibileTFR × 1,25 + UlterioriElem (campo blu editabile). La Teorica Tabellare è un dato HR da inserire manualmente. Emessi a livello V1/E0 (non in GestPrevidenziale).
             </div>
             {/* UlterioriElem — avanzato, solo per cessazione */}
             <div style={{background:"#FFFBEB",border:"1px solid #FCD34D",borderRadius:"4px",padding:"7px 10px",marginTop:"4px"}}>
@@ -1262,9 +1284,9 @@ export default function UniEmensBuilder() {
                     <td style={C.td}>{over171?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under171?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
                   </tr>
                   <tr style={C.sumRow(over172?"over":under172?"under":"ok")}>
-                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#DC2626":under172?"#D97706":"#16A34A"}}>00172I</span> Σ Contrib. TC1+TC5 — CPDEL</td>
+                    <td style={C.td}><span style={{fontSize:"10px",fontWeight:"700",color:over172?"#DC2626":under172?"#D97706":"#16A34A"}}>00172I</span> Σ Contrib. TC1+TC5+TC6 — CPDEL</td>
                     <td style={{...C.tdR,color:over172?"#DC2626":under172?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(sumContribTC1))}</td>
-                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(String(limitContrib))} (CPDEL+1%)</td>
+                    <td style={{...C.tdR,color:"#4A6E8C"}}>{toIt(String(limitContrib))} (CPDEL+1%+Sol.)</td>
                     <td style={{...C.tdR,color:over172?"#DC2626":under172?"#D97706":"#16A34A",fontWeight:"700"}}>{toIt(String(round2(sumContribTC1-limitContrib)))}</td>
                     <td style={C.td}>{over172?<span style={{color:"#DC2626",fontWeight:"700"}}>⚠ ECCESSO</span>:under172?<span style={{color:"#D97706",fontWeight:"700"}}>⚠ RESIDUO</span>:<span style={{color:"#16A34A"}}>✓ OK</span>}</td>
                   </tr>
@@ -1687,7 +1709,7 @@ export default function UniEmensBuilder() {
           </div>
           {!importModal.isVariazione&&(
             <div style={{fontSize:"10px",color:"#166534",marginBottom:"10px",padding:"6px 9px",background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:"5px",flexShrink:0}}>
-              File standard: periodi E0 importati come V1 causale 5. EnteVersante pre-compilata con tripla TC1+TC9+TC7 vuota.
+              File standard: i quadri E0 e V1 sono importati preservando il tipo originale. Per includere gli E0 nell'output usare la generazione «UNIEN — Flusso classico».
             </div>
           )}
           <div style={{display:"flex",gap:"8px",justifyContent:"flex-end",flexShrink:0,flexWrap:"wrap"}}>
@@ -1730,7 +1752,7 @@ export default function UniEmensBuilder() {
 
       <div style={C.hdr}>
         <div>
-          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.7</div>
+          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.8</div>
           <div style={C.hdrS}>Flusso misto E0+V1 · TipoListaPosPA auto · TipoImpiego DMA2 completo (19 codici) · TipoPartTime auto da codice 8/18</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
@@ -1810,13 +1832,13 @@ export default function UniEmensBuilder() {
             <div style={{fontSize:"11px",fontWeight:"700",color:"#0369A1",marginBottom:"8px"}}>Scegli il tipo di flusso da generare:</div>
             <div style={{display:"flex",gap:"10px",flexWrap:"wrap",alignItems:"center"}}>
               <button style={{...C.btn("p"),padding:"8px 18px",fontSize:"13px",fontWeight:"700"}} onClick={()=>genera("classico")}>
-                ⚡ UNIM — Flusso classico
+                ⚡ UNIEN — Flusso classico
               </button>
               <button style={{...C.btn("s"),padding:"8px 18px",fontSize:"13px",fontWeight:"700"}} onClick={()=>genera("variazione")}>
                 ⚡ UNIEV — Solo variazione
               </button>
               <div style={{fontSize:"10px",color:"#64748B",lineHeight:"1.4"}}>
-                <strong>UNIM classico</strong>: TipoListaPosPA="0" · E0+V1 · UNIEN…xml<br/>
+                <strong>UNIEN classico</strong>: TipoListaPosPA="0" · E0+V1 · UNIEN…xml<br/>
                 <strong>UNIEV variazione</strong>: TipoListaPosPA="1" · solo V1 · UNIEV…xml
               </div>
             </div>
@@ -1837,7 +1859,7 @@ export default function UniEmensBuilder() {
             ?<div style={C.alert("w")}>⚠ Dedup: {dupCount} riga{dupCount>1?"he":""} EnteVersante duplicate rimosse.</div>
             :<div style={C.alert("o")}>✓ Dedup: nessuna riga duplicata.</div>
           )}
-          {skippedE0>0&&<div style={C.alert("w")}>ℹ {skippedE0} periodo{skippedE0>1?"i":""} E0 esclus{skippedE0>1?"i":"o"} dall'XML variazione (TipoListaPosPA="1"). Usa "UNIM classico" per includerli.</div>}
+          {skippedE0>0&&<div style={C.alert("w")}>ℹ {skippedE0} periodo{skippedE0>1?"i":""} E0 esclus{skippedE0>1?"i":"o"} dall'XML variazione (TipoListaPosPA="1"). Usa "UNIEN classico" per includerli.</div>}
           {warns.map((w,i)=>(
             <div key={i} style={C.alert("e")}>
               ⚠ <strong>{w.code}</strong> · {w.who} · {w.period}<br/>
