@@ -570,7 +570,7 @@ function generatePDF(m, a, dips) {
       html += `<div class="warn">⚠ <strong>${esc(w.code)}</strong> — ${esc(w.who)} — ${esc(w.period)}<br>${esc(w.field)}: Somma EV = <strong>${esc(w.val)}</strong> | Limite = <strong>${esc(w.limit)}</strong> | Eccesso = <strong>${esc(w.excess)}</strong></div>`;
     }
   }
-  html += `<div style="margin-top:20px;font-size:8px;color:#999;border-top:1px solid #ddd;padding-top:6px">UniEmens Variazione Builder v6.8 — ${now}</div>`;
+  html += `<div style="margin-top:20px;font-size:8px;color:#999;border-top:1px solid #ddd;padding-top:6px">UniEmens Variazione Builder v6.9 — ${now}</div>`;
   html += `</body></html>`;
 
   const w = window.open("", "_blank");
@@ -684,6 +684,12 @@ const nextAnnoMese = (am) => {
   const nm = mo === 12 ? 1 : mo + 1;
   const ny = mo === 12 ? y + 1 : y;
   return `${ny}-${String(nm).padStart(2, "0")}`;
+};
+/* ultimo giorno del mese "YYYY-MM" (es. "2012-11" → 30) */
+const lastDayOfMonth = (ym) => {
+  if (!ym) return "";
+  const [y, mo] = ym.split("-").map(Number);
+  return String(new Date(y, mo, 0).getDate()).padStart(2, "0");
 };
 
 /* ════════════════════════════════════════════════════════════
@@ -842,6 +848,40 @@ export default function UniEmensBuilder() {
   /* ── Periodi CRUD ── */
   const addPer=(dipId)=>{ const p=mkPer(); setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:[...d.periodi,p]}:d)); setXPer(p.id); };
   const removePer=(dipId,perId)=>{ setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:d.periodi.filter(p=>p.id!==perId)}:d)); if(xPer===perId)setXPer(null); };
+
+  /* ── Duplica l'intero quadro al mese successivo (lavorazioni mensili DMA da ott.2012) ──
+     Clona tutti i campi, rigenera gli id (periodo + righe EV, preservando gli abbinamenti
+     TC1↔TC9) e avanza di un mese GiornoInizio/GiornoFine e ogni AnnoMeseErogazione.
+     Così AnnoMeseErogazione resta = mese di GiornoInizio (soddisfa il controllo INPS 00356I).
+     Gli importi restano invariati: l'utente ritocca solo i valori che cambiano. */
+  const duplicatePer=(dipId,perId)=>{
+    const newPerId=uid();
+    setDips(ds=>ds.map(d=>{
+      if(d.id!==dipId)return d;
+      const idx=d.periodi.findIndex(p=>p.id===perId);
+      if(idx<0)return d;
+      const src=d.periodi[idx];
+      /* mese successivo calcolato dal GiornoInizio del quadro d'origine */
+      const nAM=nextAnnoMese((src.GiornoInizio||"").slice(0,7));
+      const gi=nAM?`${nAM}-01`:src.GiornoInizio;
+      const gf=nAM?`${nAM}-${lastDayOfMonth(nAM)}`:src.GiornoFine;
+      /* rimappa gli id EV vecchi→nuovi per non rompere i link pairedTc9/pairedWith */
+      const idMap={};
+      src.enteVersante.forEach(e=>{idMap[e.id]=uid();});
+      const newEV=src.enteVersante.map(e=>({
+        ...e,
+        id:idMap[e.id],
+        AnnoMeseErogazione:nextAnnoMese(e.AnnoMeseErogazione),
+        ...(e.pairedTc9?{pairedTc9:idMap[e.pairedTc9]}:{}),
+        ...(e.pairedWith?{pairedWith:idMap[e.pairedWith]}:{}),
+      }));
+      const clone={...src,id:newPerId,GiornoInizio:gi,GiornoFine:gf,enteVersante:newEV};
+      const periodi=[...d.periodi];
+      periodi.splice(idx+1,0,clone);
+      return{...d,periodi};
+    }));
+    setXPer(newPerId);
+  };
 
   /* ── updPer: auto-sync ImpCredito, auto-calc campi retribuzione TFR ── */
   const updPer=(dipId,perId,k,v)=>setDips(ds=>ds.map(d=>d.id===dipId?{...d,periodi:d.periodi.map(p=>{
@@ -1389,6 +1429,7 @@ export default function UniEmensBuilder() {
               {hasWarn(p)&&<span style={{...C.bdg("#EF4444"),fontSize:"9px"}}>⚠ CONGRUITÀ</span>}
             </div>
             <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+              {(p.tipoQuadro||"V1")!=="E0"&&<button style={{...C.btn("cpy"),padding:"4px 9px"}} title="Duplica il quadro al mese successivo: rigenera date e AnnoMeseErogazione, mantiene gli importi" onClick={e=>{e.stopPropagation();duplicatePer(dip.id,p.id);}}>⧉ +mese</button>}
               <span style={{fontSize:"10px",color:xPer===p.id?"#0369A1":"#94A3B8"}}>{xPer===p.id?"▲":"▼"}</span>
               <button style={C.btn("x")} onClick={e=>{e.stopPropagation();removePer(dip.id,p.id);}}>✕</button>
             </div>
@@ -1754,8 +1795,8 @@ export default function UniEmensBuilder() {
 
       <div style={C.hdr}>
         <div>
-          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.8</div>
-          <div style={C.hdrS}>Flusso misto E0+V1 · TipoListaPosPA auto · TipoImpiego DMA2 completo (19 codici) · TipoPartTime auto da codice 8/18</div>
+          <div style={C.hdrT}>⬛ UniEmens Variazione Builder v6.9</div>
+          <div style={C.hdrS}>Duplica quadro V1 al mese successivo (⧉ +mese) · Flusso misto E0+V1 · TipoListaPosPA auto · TipoPartTime auto da codice 8/18</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"8px",alignItems:"center"}}>
           <span style={{fontSize:"11px",color:"#94A3B8",fontVariantNumeric:"tabular-nums"}}>{dips.length} dip. · {totPer} V1 · {totEV} EV</span>
